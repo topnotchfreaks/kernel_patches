@@ -1,28 +1,19 @@
-From 0c3c39a7663c76944e83b7f0f3043546fdcd489f Mon Sep 17 00:00:00 2001
+From 4f3138d0997e446205c3435cb31b436051464017 Mon Sep 17 00:00:00 2001
 From: rifsxd <rifat.44.azad.rifs@gmail.com>
 Date: Sun, 23 Feb 2025 02:05:21 +0600
-Subject: [PATCH 1/8] KernelSU: update subproject reference and add KSU manual
- hook support CONFIG_KSU_MANUAL
+Subject: [PATCH 1/3] KernelSU: add KSU manual hook support CONFIG_KSU_MANUAL
 
 ---
- KernelSU-Next                                 |  2 +-
- drivers/input/input.c                         | 15 +++++++++++++++
- fs/devpts/inode.c                             | 12 ++++++++++++
- fs/exec.c                                     | 19 +++++++++++++++++++
- fs/open.c                                     | 13 +++++++++++++
- fs/read_write.c                               | 15 +++++++++++++++
- fs/stat.c                                     | 12 ++++++++++++
- 9 files changed, 89 insertions(+), 1 deletion(-)
+ drivers/input/input.c | 15 +++++++++++++++
+ fs/devpts/inode.c     | 12 ++++++++++++
+ fs/exec.c             | 19 +++++++++++++++++++
+ fs/open.c             | 13 +++++++++++++
+ fs/read_write.c       | 15 +++++++++++++++
+ fs/stat.c             | 12 ++++++++++++
+ 6 files changed, 86 insertions(+)
 
-diff --git a/KernelSU-Next b/KernelSU-Next
-index 81dff86d0298d..86425c3e02122 160000
---- a/KernelSU-Next
-+++ b/KernelSU-Next
-@@ -1 +1 @@
--Subproject commit 81dff86d0298da936024c9702f4db01fde1f7200
-+Subproject commit 86425c3e021226dab29c16634b2dd442201cbc5f
 diff --git a/drivers/input/input.c b/drivers/input/input.c
-index 5ca3f11d2d759..d4850c0a31681 100644
+index 171f71bd4c2a2..08e207e3f7bc4 100644
 --- a/drivers/input/input.c
 +++ b/drivers/input/input.c
 @@ -375,6 +375,13 @@ static int input_get_disposition(struct input_dev *dev,
@@ -85,10 +76,10 @@ index 555e4cb31e65c..a41911bfcf1b5 100644
  		return NULL;
  	return dentry->d_fsdata;
 diff --git a/fs/exec.c b/fs/exec.c
-index b3421f3669884..ccd1234253a20 100644
+index c0761e3770c45..56ce58191e5d6 100644
 --- a/fs/exec.c
 +++ b/fs/exec.c
-@@ -1889,6 +1889,16 @@ extern int ksu_handle_execveat_sucompat(int *fd, struct filename **filename_ptr,
+@@ -1897,6 +1897,16 @@ extern int ksu_handle_execveat_sucompat(int *fd, struct filename **filename_ptr,
  				void *envp, int *flags);
  #endif
  
@@ -105,7 +96,7 @@ index b3421f3669884..ccd1234253a20 100644
  static int do_execveat_common(int fd, struct filename *filename,
  			      struct user_arg_ptr argv,
  			      struct user_arg_ptr envp,
-@@ -1905,6 +1915,15 @@ static int do_execveat_common(int fd, struct filename *filename,
+@@ -1913,6 +1923,15 @@ static int do_execveat_common(int fd, struct filename *filename,
  		ksu_handle_execveat_sucompat(&fd, &filename, &argv, &envp, &flags);
  #endif
  
@@ -122,7 +113,7 @@ index b3421f3669884..ccd1234253a20 100644
  	 * We move the actual failure in case of RLIMIT_NPROC excess from
  	 * set*uid() to execve() because too many poorly written programs
 diff --git a/fs/open.c b/fs/open.c
-index 1789168734f24..1d7213fc98fd5 100644
+index 064978efdc230..5ef0a4234d0a4 100644
 --- a/fs/open.c
 +++ b/fs/open.c
 @@ -340,6 +340,13 @@ SYSCALL_DEFINE4(fallocate, int, fd, int, mode, loff_t, offset, loff_t, len)
@@ -216,46 +207,22 @@ index a66a9cd47f4aa..76d047858d13e 100644
 2.49.0
 
 
-From c4306be2093d4e9129976e4d1e490e467e624854 Mon Sep 17 00:00:00 2001
+From 7feccf47285aaa98428a8b9a84d4f55f23b896f7 Mon Sep 17 00:00:00 2001
 From: rifsxd <rifat.44.azad.rifs@gmail.com>
 Date: Tue, 25 Feb 2025 03:52:24 +0600
-Subject: [PATCH 2/8] fs: remove CONFIG_KSU_MANUAL guards arm64/configs: add
- CONFIG_KSU_WITH_KPROBES
+Subject: [PATCH 2/3] fs: remove CONFIG_KSU_MANUAL guards
 
 ---
- arch/arm64/configs/chickernel-next-variants/ksu.config       | 2 +-
- arch/arm64/configs/chickernel-next-variants/ksu_susfs.config | 2 +-
- drivers/input/input.c                                        | 4 ----
- fs/devpts/inode.c                                            | 4 ----
- fs/exec.c                                                    | 4 ----
- fs/open.c                                                    | 4 ----
- fs/read_write.c                                              | 4 ----
- fs/stat.c                                                    | 4 ----
- 8 files changed, 2 insertions(+), 26 deletions(-)
+ drivers/input/input.c | 4 ----
+ fs/devpts/inode.c     | 4 ----
+ fs/exec.c             | 4 ----
+ fs/open.c             | 4 ----
+ fs/read_write.c       | 4 ----
+ fs/stat.c             | 4 ----
+ 6 files changed, 24 deletions(-)
 
-diff --git a/arch/arm64/configs/chickernel-next-variants/ksu.config b/arch/arm64/configs/chickernel-next-variants/ksu.config
-index 48a0be7db0163..a35871955d5cb 100644
---- a/arch/arm64/configs/chickernel-next-variants/ksu.config
-+++ b/arch/arm64/configs/chickernel-next-variants/ksu.config
-@@ -1,4 +1,4 @@
- CONFIG_KSU=y
--CONFIG_KSU_MANUAL=n
-+CONFIG_KSU_WITH_KPROBES=n
- 
- CONFIG_LOCALVERSION="-chickernel-next-dev-5-ksu"
-diff --git a/arch/arm64/configs/chickernel-next-variants/ksu_susfs.config b/arch/arm64/configs/chickernel-next-variants/ksu_susfs.config
-index 2c9c6798899c0..15045f6330236 100644
---- a/arch/arm64/configs/chickernel-next-variants/ksu_susfs.config
-+++ b/arch/arm64/configs/chickernel-next-variants/ksu_susfs.config
-@@ -1,5 +1,5 @@
- CONFIG_KSU=y
--CONFIG_KSU_MANUAL=n
-+CONFIG_KSU_WITH_KPROBES=n
- 
- CONFIG_KSU_SUSFS=y
- CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y
 diff --git a/drivers/input/input.c b/drivers/input/input.c
-index d4850c0a31681..d7a6e238901b8 100644
+index 08e207e3f7bc4..98f84715b19f9 100644
 --- a/drivers/input/input.c
 +++ b/drivers/input/input.c
 @@ -375,12 +375,10 @@ static int input_get_disposition(struct input_dev *dev,
@@ -311,10 +278,10 @@ index a41911bfcf1b5..65a369432f751 100644
  
  	if (dentry->d_sb->s_magic != DEVPTS_SUPER_MAGIC)
 diff --git a/fs/exec.c b/fs/exec.c
-index ccd1234253a20..9ea0a32deb14f 100644
+index 56ce58191e5d6..66a4e37e519c8 100644
 --- a/fs/exec.c
 +++ b/fs/exec.c
-@@ -1889,7 +1889,6 @@ extern int ksu_handle_execveat_sucompat(int *fd, struct filename **filename_ptr,
+@@ -1897,7 +1897,6 @@ extern int ksu_handle_execveat_sucompat(int *fd, struct filename **filename_ptr,
  				void *envp, int *flags);
  #endif
  
@@ -322,7 +289,7 @@ index ccd1234253a20..9ea0a32deb14f 100644
  #ifdef CONFIG_KSU
  extern bool ksu_execveat_hook __read_mostly;
  extern int ksu_handle_execveat(int *fd, struct filename **filename_ptr, void *argv,
-@@ -1897,7 +1896,6 @@ extern int ksu_handle_execveat(int *fd, struct filename **filename_ptr, void *ar
+@@ -1905,7 +1904,6 @@ extern int ksu_handle_execveat(int *fd, struct filename **filename_ptr, void *ar
  extern int ksu_handle_execveat_sucompat(int *fd, struct filename **filename_ptr,
  				 void *argv, void *envp, int *flags);
  #endif
@@ -330,7 +297,7 @@ index ccd1234253a20..9ea0a32deb14f 100644
  
  static int do_execveat_common(int fd, struct filename *filename,
  			      struct user_arg_ptr argv,
-@@ -1915,13 +1913,11 @@ static int do_execveat_common(int fd, struct filename *filename,
+@@ -1923,13 +1921,11 @@ static int do_execveat_common(int fd, struct filename *filename,
  		ksu_handle_execveat_sucompat(&fd, &filename, &argv, &envp, &flags);
  #endif
  
@@ -345,7 +312,7 @@ index ccd1234253a20..9ea0a32deb14f 100644
  
  	/*
 diff --git a/fs/open.c b/fs/open.c
-index 1d7213fc98fd5..b40c47b4aadc4 100644
+index 5ef0a4234d0a4..3960205143a69 100644
 --- a/fs/open.c
 +++ b/fs/open.c
 @@ -340,12 +340,10 @@ SYSCALL_DEFINE4(fallocate, int, fd, int, mode, loff_t, offset, loff_t, len)
@@ -431,134 +398,10 @@ index 76d047858d13e..85760bfb6566b 100644
 2.49.0
 
 
-From 0cbfb6a47bea09dc6f6bb39eeae5414bb64c4611 Mon Sep 17 00:00:00 2001
-From: rifsxd <rifat.44.azad.rifs@gmail.com>
-Date: Tue, 25 Feb 2025 04:16:15 +0600
-Subject: [PATCH 3/8] arm64/configs: update local version suffix to KSUS and
- KSUS-SUSFS
-
----
- arch/arm64/configs/chickernel-next-variants/ksu.config       | 4 ++--
- arch/arm64/configs/chickernel-next-variants/ksu_susfs.config | 2 +-
- 2 files changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/arch/arm64/configs/chickernel-next-variants/ksu.config b/arch/arm64/configs/chickernel-next-variants/ksu.config
-index a35871955d5cb..27c962051df3c 100644
---- a/arch/arm64/configs/chickernel-next-variants/ksu.config
-+++ b/arch/arm64/configs/chickernel-next-variants/ksu.config
-@@ -1,4 +1,4 @@
-+
- CONFIG_KSU=y
- CONFIG_KSU_WITH_KPROBES=n
--
--CONFIG_LOCALVERSION="-chickernel-next-dev-5-ksu"
-+CONFIG_LOCALVERSION="-chickernel-next-dev-5-ksun"
-diff --git a/arch/arm64/configs/chickernel-next-variants/ksu_susfs.config b/arch/arm64/configs/chickernel-next-variants/ksu_susfs.config
-index 15045f6330236..616b726e9a3ea 100644
---- a/arch/arm64/configs/chickernel-next-variants/ksu_susfs.config
-+++ b/arch/arm64/configs/chickernel-next-variants/ksu_susfs.config
-@@ -18,4 +18,4 @@ CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y
- CONFIG_KSU_SUSFS_OPEN_REDIRECT=y
- CONFIG_KSU_SUSFS_SUS_SU=y
- 
--CONFIG_LOCALVERSION="-chickernel-next-dev-5-ksu-susfs"
-+CONFIG_LOCALVERSION="-chickernel-next-dev-5-ksun-susfs"
--- 
-2.49.0
-
-
-From 859ad06530a1f03846e8b33c3e466b961713d427 Mon Sep 17 00:00:00 2001
-From: rifsxd <rifat.44.azad.rifs@gmail.com>
-Date: Tue, 25 Feb 2025 16:30:05 +0600
-Subject: [PATCH 4/8] KernelSU: update subproject commit reference to f5ae664
-
----
- KernelSU-Next | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/KernelSU-Next b/KernelSU-Next
-index 86425c3e02122..f5ae6640d9cb3 160000
---- a/KernelSU-Next
-+++ b/KernelSU-Next
-@@ -1 +1 @@
--Subproject commit 86425c3e021226dab29c16634b2dd442201cbc5f
-+Subproject commit f5ae6640d9cb3b0f82136ef5bfbc40ce18ba8682
--- 
-2.49.0
-
-
-From 0c7d16e7c1c3a454655c79a0b7da99ca788295e5 Mon Sep 17 00:00:00 2001
-From: rifsxd <rifat.44.azad.rifs@gmail.com>
-Date: Tue, 25 Feb 2025 16:33:24 +0600
-Subject: [PATCH 5/8] arm64/configs: disable CONFIG_KSU_SUSFS_SUS_SU option in
- ksu_susfs.config
-
----
- arch/arm64/configs/chickernel-next-variants/ksu_susfs.config | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/arch/arm64/configs/chickernel-next-variants/ksu_susfs.config b/arch/arm64/configs/chickernel-next-variants/ksu_susfs.config
-index 616b726e9a3ea..90e7cdbb838ce 100644
---- a/arch/arm64/configs/chickernel-next-variants/ksu_susfs.config
-+++ b/arch/arm64/configs/chickernel-next-variants/ksu_susfs.config
-@@ -16,6 +16,6 @@ CONFIG_KSU_SUSFS_ENABLE_LOG=y
- CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y
- CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y
- CONFIG_KSU_SUSFS_OPEN_REDIRECT=y
--CONFIG_KSU_SUSFS_SUS_SU=y
-+CONFIG_KSU_SUSFS_SUS_SU=n
- 
- CONFIG_LOCALVERSION="-chickernel-next-dev-5-ksun-susfs"
--- 
-2.49.0
-
-
-From ffb50a8ba240219845c431148b951cfe447b3cf8 Mon Sep 17 00:00:00 2001
-From: rifsxd <rifat.44.azad.rifs@gmail.com>
-Date: Tue, 25 Feb 2025 17:32:33 +0600
-Subject: [PATCH 6/8] KernelSU-Next: next-susfs: update subproject commit
- reference to d49dfdd
-
----
- KernelSU-Next | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/KernelSU-Next b/KernelSU-Next
-index f5ae6640d9cb3..ca149a20217a1 160000
---- a/KernelSU-Next
-+++ b/KernelSU-Next
-@@ -1 +1 @@
--Subproject commit f5ae6640d9cb3b0f82136ef5bfbc40ce18ba8682
-+Subproject commit ca149a20217a1cb164be7204418cd36815efe88d
--- 
-2.49.0
-
-
-From 5e207b1195a1a12ae6cac2bf4f4a08964ac096db Mon Sep 17 00:00:00 2001
-From: rifsxd <rifat.44.azad.rifs@gmail.com>
-Date: Wed, 26 Feb 2025 01:56:00 +0600
-Subject: [PATCH 7/8] KernelSU-Next: update subproject commit reference to
- ce0ff73
-
----
- KernelSU-Next | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/KernelSU-Next b/KernelSU-Next
-index ca149a20217a1..ce0ff73951884 160000
---- a/KernelSU-Next
-+++ b/KernelSU-Next
-@@ -1 +1 @@
--Subproject commit ca149a20217a1cb164be7204418cd36815efe88d
-+Subproject commit ce0ff7395188490934fb1b67446b6a351f22a2b4
--- 
-2.49.0
-
-
-From 6a9b5a62a0727c2c0b9211d2d40aaac5f61f28fd Mon Sep 17 00:00:00 2001
+From 122317c55faf23218c452aeddae577892596d827 Mon Sep 17 00:00:00 2001
 From: rifsxd <rifat.44.azad.rifs@gmail.com>
 Date: Fri, 7 Mar 2025 21:47:53 +0600
-Subject: [PATCH 8/8] kernelsu: refactor: scope-minimized manual hooks
+Subject: [PATCH 3/3] kernelsu: refactor: scope-minimized manual hooks
 
 ---
  drivers/input/input.c | 21 ++++++++++-----------
@@ -571,7 +414,7 @@ Subject: [PATCH 8/8] kernelsu: refactor: scope-minimized manual hooks
  7 files changed, 63 insertions(+), 60 deletions(-)
 
 diff --git a/drivers/input/input.c b/drivers/input/input.c
-index d7a6e238901b8..70737f6a34b7a 100644
+index 98f84715b19f9..be16d2d0abb92 100644
 --- a/drivers/input/input.c
 +++ b/drivers/input/input.c
 @@ -375,11 +375,6 @@ static int input_get_disposition(struct input_dev *dev,
@@ -669,10 +512,10 @@ index 65a369432f751..51e503bdeefaa 100644
  	if (dentry->d_sb->s_magic != DEVPTS_SUPER_MAGIC)
  		return NULL;
 diff --git a/fs/exec.c b/fs/exec.c
-index 9ea0a32deb14f..58e43bdf81b2a 100644
+index 66a4e37e519c8..98b8ee2437e1f 100644
 --- a/fs/exec.c
 +++ b/fs/exec.c
-@@ -1889,14 +1889,6 @@ extern int ksu_handle_execveat_sucompat(int *fd, struct filename **filename_ptr,
+@@ -1897,14 +1897,6 @@ extern int ksu_handle_execveat_sucompat(int *fd, struct filename **filename_ptr,
  				void *envp, int *flags);
  #endif
  
@@ -687,7 +530,7 @@ index 9ea0a32deb14f..58e43bdf81b2a 100644
  static int do_execveat_common(int fd, struct filename *filename,
  			      struct user_arg_ptr argv,
  			      struct user_arg_ptr envp,
-@@ -1913,13 +1905,6 @@ static int do_execveat_common(int fd, struct filename *filename,
+@@ -1921,13 +1913,6 @@ static int do_execveat_common(int fd, struct filename *filename,
  		ksu_handle_execveat_sucompat(&fd, &filename, &argv, &envp, &flags);
  #endif
  
@@ -701,7 +544,7 @@ index 9ea0a32deb14f..58e43bdf81b2a 100644
  	/*
  	 * We move the actual failure in case of RLIMIT_NPROC excess from
  	 * set*uid() to execve() because too many poorly written programs
-@@ -2049,12 +2034,26 @@ int kernel_execve(const char *kernel_filename,
+@@ -2057,12 +2042,26 @@ int kernel_execve(const char *kernel_filename,
  	return retval;
  }
  
@@ -728,7 +571,7 @@ index 9ea0a32deb14f..58e43bdf81b2a 100644
  	return do_execveat_common(AT_FDCWD, filename, argv, envp, 0);
  }
  
-@@ -2082,6 +2081,10 @@ static int compat_do_execve(struct filename *filename,
+@@ -2090,6 +2089,10 @@ static int compat_do_execve(struct filename *filename,
  		.is_compat = true,
  		.ptr.compat = __envp,
  	};
@@ -740,7 +583,7 @@ index 9ea0a32deb14f..58e43bdf81b2a 100644
  }
  
 diff --git a/fs/open.c b/fs/open.c
-index b40c47b4aadc4..4462051299ea5 100644
+index 3960205143a69..eebd1ee72c2f8 100644
 --- a/fs/open.c
 +++ b/fs/open.c
 @@ -340,11 +340,6 @@ SYSCALL_DEFINE4(fallocate, int, fd, int, mode, loff_t, offset, loff_t, len)
