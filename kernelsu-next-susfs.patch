@@ -6,8 +6,6 @@ Subject: [PATCH 1/8] KernelSU: update subproject reference and add KSU manual
 
 ---
  KernelSU-Next                                 |  2 +-
- .../chickernel-next-variants/ksu.config       |  1 +
- .../chickernel-next-variants/ksu_susfs.config |  1 +
  drivers/input/input.c                         | 15 +++++++++++++++
  fs/devpts/inode.c                             | 12 ++++++++++++
  fs/exec.c                                     | 19 +++++++++++++++++++
@@ -23,25 +21,6 @@ index 81dff86d0298d..86425c3e02122 160000
 @@ -1 +1 @@
 -Subproject commit 81dff86d0298da936024c9702f4db01fde1f7200
 +Subproject commit 86425c3e021226dab29c16634b2dd442201cbc5f
-diff --git a/arch/arm64/configs/chickernel-next-variants/ksu.config b/arch/arm64/configs/chickernel-next-variants/ksu.config
-index e4a3eff935e47..48a0be7db0163 100644
---- a/arch/arm64/configs/chickernel-next-variants/ksu.config
-+++ b/arch/arm64/configs/chickernel-next-variants/ksu.config
-@@ -1,3 +1,4 @@
- CONFIG_KSU=y
-+CONFIG_KSU_MANUAL=n
- 
- CONFIG_LOCALVERSION="-chickernel-next-dev-5-ksu"
-diff --git a/arch/arm64/configs/chickernel-next-variants/ksu_susfs.config b/arch/arm64/configs/chickernel-next-variants/ksu_susfs.config
-index 2a4cfaee7bad7..2c9c6798899c0 100644
---- a/arch/arm64/configs/chickernel-next-variants/ksu_susfs.config
-+++ b/arch/arm64/configs/chickernel-next-variants/ksu_susfs.config
-@@ -1,4 +1,5 @@
- CONFIG_KSU=y
-+CONFIG_KSU_MANUAL=n
- 
- CONFIG_KSU_SUSFS=y
- CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y
 diff --git a/drivers/input/input.c b/drivers/input/input.c
 index 5ca3f11d2d759..d4850c0a31681 100644
 --- a/drivers/input/input.c
