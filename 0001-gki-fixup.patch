@@ -1,0 +1,113 @@
+From e322f5db07b66154368bf0f22960aafcd2f04d66 Mon Sep 17 00:00:00 2001
+From: "env." <162432464+belowzeroiq@users.noreply.github.com>
+Date: Wed, 30 Apr 2025 03:06:16 +0700
+Subject: [PATCH] gki fixup
+
+fix bugs in gki kernels
+---
+ drivers/of/property.c     | 2 +-
+ drivers/usb/dwc3/core.c   | 4 +++-
+ drivers/usb/dwc3/core.h   | 1 -
+ drivers/usb/dwc3/gadget.c | 9 ---------
+ scripts/setlocalversion   | 4 +---
+ 5 files changed, 5 insertions(+), 15 deletions(-)
+
+diff --git a/drivers/of/property.c b/drivers/of/property.c
+index 905ac6466a5b2..acf0d3110357c 100644
+--- a/drivers/of/property.c
++++ b/drivers/of/property.c
+@@ -1270,7 +1270,7 @@ DEFINE_SIMPLE_PROP(clocks, "clocks", "#clock-cells")
+ DEFINE_SIMPLE_PROP(interconnects, "interconnects", "#interconnect-cells")
+ DEFINE_SIMPLE_PROP(iommus, "iommus", "#iommu-cells")
+ DEFINE_SIMPLE_PROP(mboxes, "mboxes", "#mbox-cells")
+-DEFINE_SIMPLE_PROP(io_channels, "io-channels", "#io-channel-cells")
++DEFINE_SIMPLE_PROP(io_channels, "io-channel", "#io-channel-cells")
+ DEFINE_SIMPLE_PROP(interrupt_parent, "interrupt-parent", NULL)
+ DEFINE_SIMPLE_PROP(dmas, "dmas", "#dma-cells")
+ DEFINE_SIMPLE_PROP(power_domains, "power-domains", "#power-domain-cells")
+diff --git a/drivers/usb/dwc3/core.c b/drivers/usb/dwc3/core.c
+index fdddbb7b901d4..42bd6e12d9268 100644
+--- a/drivers/usb/dwc3/core.c
++++ b/drivers/usb/dwc3/core.c
+@@ -148,6 +148,8 @@ void dwc3_set_prtcap(struct dwc3 *dwc, u32 mode, bool ignore_susphy)
+ 	dwc->current_dr_role = mode;
+ }
+ 
++static int dwc3_core_soft_reset(struct dwc3 *dwc);
++
+ static void __dwc3_set_mode(struct work_struct *work)
+ {
+ 	struct dwc3 *dwc = work_to_dwc(work);
+@@ -301,7 +303,7 @@ u32 dwc3_core_fifo_space(struct dwc3_ep *dep, u8 type)
+  * dwc3_core_soft_reset - Issues core soft reset and PHY reset
+  * @dwc: pointer to our context structure
+  */
+-int dwc3_core_soft_reset(struct dwc3 *dwc)
++static int dwc3_core_soft_reset(struct dwc3 *dwc)
+ {
+ 	u32		reg;
+ 	int		retries = 1000;
+diff --git a/drivers/usb/dwc3/core.h b/drivers/usb/dwc3/core.h
+index 734fd5a4fd1c1..8e9f8f427cd98 100644
+--- a/drivers/usb/dwc3/core.h
++++ b/drivers/usb/dwc3/core.h
+@@ -1548,7 +1548,6 @@ bool dwc3_has_imod(struct dwc3 *dwc);
+ int dwc3_event_buffers_setup(struct dwc3 *dwc);
+ void dwc3_event_buffers_cleanup(struct dwc3 *dwc);
+ 
+-int dwc3_core_soft_reset(struct dwc3 *dwc);
+ void dwc3_enable_susphy(struct dwc3 *dwc, bool enable);
+ 
+ #if IS_ENABLED(CONFIG_USB_DWC3_HOST) || IS_ENABLED(CONFIG_USB_DWC3_DUAL_ROLE)
+diff --git a/drivers/usb/dwc3/gadget.c b/drivers/usb/dwc3/gadget.c
+index b14c088e8e296..2bc7148b3d5fa 100644
+--- a/drivers/usb/dwc3/gadget.c
++++ b/drivers/usb/dwc3/gadget.c
+@@ -2639,15 +2639,6 @@ static int dwc3_gadget_soft_disconnect(struct dwc3 *dwc)
+ 
+ static int dwc3_gadget_soft_connect(struct dwc3 *dwc)
+ {
+-	/*
+-	 * In the Synopsys DWC_usb31 1.90a programming guide section
+-	 * 4.1.9, it specifies that for a reconnect after a
+-	 * device-initiated disconnect requires a core soft reset
+-	 * (DCTL.CSftRst) before enabling the run/stop bit.
+-	 */
+-	dwc3_core_soft_reset(dwc);
+-
+-	dwc3_event_buffers_setup(dwc);
+ 	__dwc3_gadget_start(dwc);
+ 	return dwc3_gadget_run_stop(dwc, true);
+ }
+diff --git a/scripts/setlocalversion b/scripts/setlocalversion
+index e80fd64535d1c..9887095a237bb 100755
+--- a/scripts/setlocalversion
++++ b/scripts/setlocalversion
+@@ -82,7 +82,6 @@ scm_version()
+ 			# If only the short version is requested, don't bother
+ 			# running further git commands
+ 			if $short; then
+-				echo "+"
+ 				return
+ 			fi
+ 			# If we are past a tagged commit (like
+@@ -111,7 +110,7 @@ scm_version()
+ 			git --no-optional-locks status -uno --porcelain 2>/dev/null ||
+ 			git diff-index --name-only HEAD
+ 		} | read dummy; then
+-			printf '%s' -dirty
++			printf '%s'
+ 		fi
+ 	fi
+ }
+@@ -170,7 +169,6 @@ elif [ "${LOCALVERSION+set}" != "set" ]; then
+ 	# If the variable LOCALVERSION is set (including being set
+ 	# to an empty string), we don't want to append a plus sign.
+ 	scm=$(scm_version --short)
+-	res="$res${scm:++}"
+ fi
+ 
+ # finally, add the abXXX number if BUILD_NUMBER is set
+-- 
+2.49.0
+
