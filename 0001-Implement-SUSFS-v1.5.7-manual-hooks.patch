@@ -1,17 +1,15 @@
-From 01ec37c41d5b0cc772ec7331807426c516c5f5fc Mon Sep 17 00:00:00 2001
-From: "env." <162432464+belowzeroiq@users.noreply.github.com>
-Date: Fri, 2 May 2025 22:21:39 +0700
-Subject: [PATCH] Implement-SUSFS-v.1.5.7-manual-hooks
+From 283cb9d5c7ca05a8b51d1d2d60cff37f5f087b90 Mon Sep 17 00:00:00 2001
+From: "env." <belowzeroiq@proton.me>
+Date: Wed, 21 May 2025 21:02:13 +0700
+Subject: [PATCH] Implement SUSFS v1.5.7
 
-- Simonpunk SUSFS v.1.5.7
-- KSUN Manual hooks
 ---
  drivers/input/input.c     |  10 +
  drivers/tty/pty.c         |   7 +
  fs/Makefile               |   2 +
  fs/dcache.c               |  15 +
  fs/devpts/inode.c         |  11 +
- fs/exec.c                 |  48 ++
+ fs/exec.c                 |  29 ++
  fs/namei.c                | 130 ++++++
  fs/namespace.c            | 310 ++++++++++++-
  fs/notify/fdinfo.c        |  48 ++
@@ -25,7 +23,7 @@ Subject: [PATCH] Implement-SUSFS-v.1.5.7-manual-hooks
  fs/proc_namespace.c       |  17 +
  fs/read_write.c           |  10 +
  fs/readdir.c              |  26 ++
- fs/stat.c                 |  54 +++
+ fs/stat.c                 |  51 +++
  fs/statfs.c               |  43 ++
  fs/sus_su.c               | 140 ++++++
  fs/susfs.c                | 911 ++++++++++++++++++++++++++++++++++++++
@@ -36,7 +34,7 @@ Subject: [PATCH] Implement-SUSFS-v.1.5.7-manual-hooks
  include/linux/susfs_def.h |  62 +++
  kernel/kallsyms.c         |  10 +
  kernel/sys.c              |   6 +
- 30 files changed, 2196 insertions(+), 1 deletion(-)
+ 30 files changed, 2174 insertions(+), 1 deletion(-)
  create mode 100644 fs/sus_su.c
  create mode 100644 fs/susfs.c
  create mode 100644 include/linux/sus_su.h
@@ -175,7 +173,7 @@ index 4f25015aa534..555e4cb31e65 100644
  		return NULL;
  	return dentry->d_fsdata;
 diff --git a/fs/exec.c b/fs/exec.c
-index b1b9db56a609..9902c49e7c62 100644
+index b1b9db56a609..98b8ee2437e1 100644
 --- a/fs/exec.c
 +++ b/fs/exec.c
 @@ -1891,6 +1891,12 @@ static int bprm_execve(struct linux_binprm *bprm,
@@ -239,44 +237,6 @@ index b1b9db56a609..9902c49e7c62 100644
 +		ksu_handle_execveat_sucompat((int *)AT_FDCWD, &filename, NULL, NULL, NULL); /* 32-bit su */
 +#endif
  	return do_execveat_common(AT_FDCWD, filename, argv, envp, 0);
- }
- 
-@@ -2108,11 +2137,26 @@ void set_dumpable(struct mm_struct *mm, int value)
- 	set_mask_bits(&mm->flags, MMF_DUMPABLE_MASK, value);
- }
- 
-+#if defined CONFIG_KSU && !defined(CONFIG_KSU_WITH_KPROBES)
-+extern bool ksu_execveat_hook __read_mostly;
-+extern int ksu_handle_execve_sucompat(int *fd, const char __user **filename_user,
-+			       void *__never_use_argv, void *__never_use_envp,
-+			       int *__never_use_flags);
-+extern int ksu_handle_execve_ksud(const char __user *filename_user,
-+			const char __user *const __user *__argv);
-+#endif
-+
- SYSCALL_DEFINE3(execve,
- 		const char __user *, filename,
- 		const char __user *const __user *, argv,
- 		const char __user *const __user *, envp)
- {
-+#if defined CONFIG_KSU && !defined(CONFIG_KSU_WITH_KPROBES)
-+	if (unlikely(ksu_execveat_hook))
-+		ksu_handle_execve_ksud(filename, argv);
-+	else
-+		ksu_handle_execve_sucompat((int *)AT_FDCWD, &filename, NULL, NULL, NULL);
-+#endif
- 	return do_execve(getname(filename), argv, envp);
- }
- 
-@@ -2132,6 +2176,10 @@ COMPAT_SYSCALL_DEFINE3(execve, const char __user *, filename,
- 	const compat_uptr_t __user *, argv,
- 	const compat_uptr_t __user *, envp)
- {
-+#if defined CONFIG_KSU && !defined(CONFIG_KSU_WITH_KPROBES)
-+	if (!ksu_execveat_hook)
-+		ksu_handle_execve_sucompat((int *)AT_FDCWD, &filename, NULL, NULL, NULL); /* 32-bit su support */
-+#endif
- 	return compat_do_execve(getname(filename), argv, envp);
  }
  
 diff --git a/fs/namei.c b/fs/namei.c
@@ -541,7 +501,7 @@ index ce97b60fe557..be5d18de6384 100644
  	return filp;
  }
 diff --git a/fs/namespace.c b/fs/namespace.c
-index e0526ec29217..f6a6b3d82811 100644
+index b5311dc8cea7..c8de028ee36b 100644
 --- a/fs/namespace.c
 +++ b/fs/namespace.c
 @@ -32,10 +32,36 @@
@@ -831,7 +791,7 @@ index e0526ec29217..f6a6b3d82811 100644
  	lock_mount_hash();
  	list_add_tail(&mnt->mnt_instance, &sb->s_mounts);
  	unlock_mount_hash();
-@@ -1833,6 +2030,9 @@ struct mount *copy_tree(struct mount *mnt, struct dentry *dentry,
+@@ -1834,6 +2031,9 @@ struct mount *copy_tree(struct mount *mnt, struct dentry *dentry,
  					int flag)
  {
  	struct mount *res, *p, *q, *r, *parent;
@@ -841,7 +801,7 @@ index e0526ec29217..f6a6b3d82811 100644
  
  	if (!(flag & CL_COPY_UNBINDABLE) && IS_MNT_UNBINDABLE(mnt))
  		return ERR_PTR(-EINVAL);
-@@ -1849,6 +2049,9 @@ struct mount *copy_tree(struct mount *mnt, struct dentry *dentry,
+@@ -1850,6 +2050,9 @@ struct mount *copy_tree(struct mount *mnt, struct dentry *dentry,
  	p = mnt;
  	list_for_each_entry(r, &mnt->mnt_mounts, mnt_child) {
  		struct mount *s;
@@ -851,7 +811,7 @@ index e0526ec29217..f6a6b3d82811 100644
  		if (!is_subdir(r->mnt_mountpoint, dentry))
  			continue;
  
-@@ -1878,6 +2081,15 @@ struct mount *copy_tree(struct mount *mnt, struct dentry *dentry,
+@@ -1879,6 +2082,15 @@ struct mount *copy_tree(struct mount *mnt, struct dentry *dentry,
  			q = clone_mnt(p, p->mnt.mnt_root, flag);
  			if (IS_ERR(q))
  				goto out;
@@ -867,7 +827,7 @@ index e0526ec29217..f6a6b3d82811 100644
  			lock_mount_hash();
  			list_add_tail(&q->mnt_list, &res->mnt_list);
  			attach_mnt(q, parent, p->mnt_mp);
-@@ -2411,6 +2623,27 @@ static int do_loopback(struct path *path, const char *old_name,
+@@ -2412,6 +2624,27 @@ static int do_loopback(struct path *path, const char *old_name,
  		umount_tree(mnt, UMOUNT_SYNC);
  		unlock_mount_hash();
  	}
@@ -895,7 +855,7 @@ index e0526ec29217..f6a6b3d82811 100644
  out2:
  	unlock_mount(mp);
  out:
-@@ -3430,6 +3663,10 @@ struct mnt_namespace *copy_mnt_ns(unsigned long flags, struct mnt_namespace *ns,
+@@ -3431,6 +3664,10 @@ struct mnt_namespace *copy_mnt_ns(unsigned long flags, struct mnt_namespace *ns,
  	struct mount *old;
  	struct mount *new;
  	int copy_flags;
@@ -906,7 +866,7 @@ index e0526ec29217..f6a6b3d82811 100644
  
  	BUG_ON(!ns);
  
-@@ -3449,6 +3686,11 @@ struct mnt_namespace *copy_mnt_ns(unsigned long flags, struct mnt_namespace *ns,
+@@ -3450,6 +3687,11 @@ struct mnt_namespace *copy_mnt_ns(unsigned long flags, struct mnt_namespace *ns,
  	copy_flags = CL_COPY_UNBINDABLE | CL_EXPIRE;
  	if (user_ns != ns->user_ns)
  		copy_flags |= CL_SHARED_TO_SLAVE;
@@ -918,7 +878,7 @@ index e0526ec29217..f6a6b3d82811 100644
  	new = copy_tree(old, old->mnt.mnt_root, copy_flags);
  	if (IS_ERR(new)) {
  		namespace_unlock();
-@@ -3490,6 +3732,24 @@ struct mnt_namespace *copy_mnt_ns(unsigned long flags, struct mnt_namespace *ns,
+@@ -3491,6 +3733,24 @@ struct mnt_namespace *copy_mnt_ns(unsigned long flags, struct mnt_namespace *ns,
  		while (p->mnt.mnt_root != q->mnt.mnt_root)
  			p = next_mnt(p, old);
  	}
@@ -943,7 +903,7 @@ index e0526ec29217..f6a6b3d82811 100644
  	namespace_unlock();
  
  	if (rootmnt)
-@@ -3562,6 +3822,13 @@ SYSCALL_DEFINE5(mount, char __user *, dev_name, char __user *, dir_name,
+@@ -3563,6 +3823,13 @@ SYSCALL_DEFINE5(mount, char __user *, dev_name, char __user *, dir_name,
  
  	ret = do_mount(kernel_dev, dir_name, kernel_type, flags, options);
  
@@ -957,7 +917,7 @@ index e0526ec29217..f6a6b3d82811 100644
  	kfree(options);
  out_data:
  	kfree(kernel_dev);
-@@ -3784,6 +4051,13 @@ SYSCALL_DEFINE5(move_mount,
+@@ -3785,6 +4052,13 @@ SYSCALL_DEFINE5(move_mount,
  	path_put(&to_path);
  out_from:
  	path_put(&from_path);
@@ -971,7 +931,7 @@ index e0526ec29217..f6a6b3d82811 100644
  	return ret;
  }
  
-@@ -4656,3 +4930,37 @@ const struct proc_ns_operations mntns_operations = {
+@@ -4657,3 +4931,37 @@ const struct proc_ns_operations mntns_operations = {
  	.install	= mntns_install,
  	.owner		= mntns_owner,
  };
@@ -1501,7 +1461,7 @@ index 09e8ed7d4161..a8ca7ea29259 100644
  	if (unlikely(buf->error))
  		return buf->error;
 diff --git a/fs/stat.c b/fs/stat.c
-index 357a1db410ec..71c9e8dd470d 100644
+index 357a1db410ec..767aedf7425f 100644
 --- a/fs/stat.c
 +++ b/fs/stat.c
 @@ -17,6 +17,9 @@
@@ -1614,16 +1574,6 @@ index 357a1db410ec..71c9e8dd470d 100644
  
 +#if defined(CONFIG_KSU) && defined(CONFIG_COMPAT) && !defined(CONFIG_KSU_WITH_KPROBES)
 +	ksu_handle_stat(&dfd, &filename, &flag); /* 32-bit su */
-+#endif
- 	error = vfs_fstatat(dfd, filename, &stat, flag);
- 	if (error)
- 		return error;
-@@ -706,6 +757,9 @@ COMPAT_SYSCALL_DEFINE4(newfstatat, unsigned int, dfd,
- 	struct kstat stat;
- 	int error;
- 
-+#if defined(CONFIG_KSU) && !defined(CONFIG_KSU_WITH_KPROBES)
-+	ksu_handle_stat(&dfd, &filename, &flag);
 +#endif
  	error = vfs_fstatat(dfd, filename, &stat, flag);
  	if (error)
