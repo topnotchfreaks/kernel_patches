@@ -1,18 +1,19 @@
-From 44ec25cd5bf072b3bec903eafbf172c18473067e Mon Sep 17 00:00:00 2001
+From 9964d3bb9084f9e53db8ba46e131b34add312f9f Mon Sep 17 00:00:00 2001
 From: "env." <162432464+belowzeroiq@users.noreply.github.com>
 Date: Tue, 3 Jun 2025 23:04:46 +0700
 Subject: [PATCH] lz4: Update LZ4 to v1.9.4
 
+lz4:fixup compilation
 ---
  include/linux/lz4.h      |  174 ++---
  lib/lz4/lz4_compress.c   | 1398 ++++++++++++++++++++++----------------
  lib/lz4/lz4_decompress.c | 1125 +++++++++++++++++-------------
  lib/lz4/lz4defs.h        |  128 ++--
  lib/lz4/lz4hc_compress.c |    8 +-
- 5 files changed, 1641 insertions(+), 1192 deletions(-)
+ 5 files changed, 1640 insertions(+), 1193 deletions(-)
 
 diff --git a/include/linux/lz4.h b/include/linux/lz4.h
-index b16e15b9587a..d3057c051d60 100644
+index b16e15b9587a1..d3057c051d603 100644
 --- a/include/linux/lz4.h
 +++ b/include/linux/lz4.h
 @@ -42,7 +42,7 @@
@@ -374,7 +375,7 @@ index b16e15b9587a..d3057c051d60 100644
 +#endif
 \ No newline at end of file
 diff --git a/lib/lz4/lz4_compress.c b/lib/lz4/lz4_compress.c
-index 90bb67994688..244654ba0ec3 100644
+index 90bb67994688d..244654ba0ec37 100644
 --- a/lib/lz4/lz4_compress.c
 +++ b/lib/lz4/lz4_compress.c
 @@ -41,29 +41,28 @@
@@ -2094,10 +2095,10 @@ index 90bb67994688..244654ba0ec3 100644
 +MODULE_DESCRIPTION("LZ4 compressor");
 \ No newline at end of file
 diff --git a/lib/lz4/lz4_decompress.c b/lib/lz4/lz4_decompress.c
-index fd1728d94bab..da2c32011ea3 100644
+index fd1728d94babb..72996093ad38b 100644
 --- a/lib/lz4/lz4_decompress.c
 +++ b/lib/lz4/lz4_decompress.c
-@@ -44,443 +44,608 @@
+@@ -44,443 +44,606 @@
   *	Decompression functions
   *******************************/
  
@@ -2107,9 +2108,7 @@ index fd1728d94bab..da2c32011ea3 100644
 -#ifndef assert
 -#define assert(condition) ((void)0)
 -#endif
-+static const unsigned inc32table[8] = { 0, 1, 2, 1, 0, 4, 4, 4 };
-+static const int dec64table[8] = { 0, 0, 0, -1, -4, 1, 2, 3 };
- 
+-
 -/*
 - * LZ4_decompress_generic() :
 - * This generic decompression function covers all use cases.
@@ -2142,7 +2141,9 @@ index fd1728d94bab..da2c32011ea3 100644
 -{
 -	const BYTE *ip = (const BYTE *) src;
 -	const BYTE * const iend = ip + srcSize;
--
++static const unsigned inc32table[8] = { 0, 1, 2, 1, 0, 4, 4, 4 };
++static const int dec64table[8] = { 0, 0, 0, -1, -4, 1, 2, 3 };
+ 
 -	BYTE *op = (BYTE *) dst;
 -	BYTE * const oend = op + outputSize;
 -	BYTE *cpy;
@@ -2669,12 +2670,12 @@ index fd1728d94bab..da2c32011ea3 100644
 +		length += s;
 +		if (unlikely((*ip) > ilimit)) { /* read limit reached */
 +			return rvl_error;
-+		}
+ 		}
 +		/* accumulator overflow detection (32-bit mode only) */
 +		if ((sizeof(length) < 8) &&
 +		    unlikely(length > ((Rvl_t)(-1) / 2))) {
 +			return rvl_error;
- 		}
++		}
 +	} while (s == 255);
  
 -		/* copy match within block */
@@ -2796,8 +2797,6 @@ index fd1728d94bab..da2c32011ea3 100644
 +            oend - 14 /*maxLL*/ - 18 /*maxML*/;
 +        const unsigned int inc32table[8] = {0, 1, 2, 1, 0, 4, 4, 4};
 +        const int dec64table[8] = {0, 0, 0, -1, -4, 1, 2, 3};
-+
-+        const int safeDecode = 1; // always decode_full_block in this kernel code
 +
 +        const BYTE *match;
 +        size_t offset;
@@ -3100,7 +3099,16 @@ index fd1728d94bab..da2c32011ea3 100644
  }
  
  /* ===== Instantiate a few more decoding cases, used more than once. ===== */
-@@ -500,10 +665,8 @@ static int LZ4_decompress_safe_withSmallPrefix(const char *source, char *dest,
+@@ -492,7 +655,7 @@ static int LZ4_decompress_safe_withPrefix64k(const char *source, char *dest,
+ 				      compressedSize, maxOutputSize,
+ 				      endOnInputSize, decode_full_block,
+ 				      withPrefix64k,
+-				      (BYTE *)dest - 64 * KB, NULL, 0);
++				      (BYTE *)dest - 64 * KB, NULL);
+ }
+ 
+ static int LZ4_decompress_safe_withSmallPrefix(const char *source, char *dest,
+@@ -500,10 +663,8 @@ static int LZ4_decompress_safe_withSmallPrefix(const char *source, char *dest,
  					       int maxOutputSize,
  					       size_t prefixSize)
  {
@@ -3113,7 +3121,7 @@ index fd1728d94bab..da2c32011ea3 100644
  				      (BYTE *)dest - prefixSize, NULL, 0);
  }
  
-@@ -511,22 +674,19 @@ int LZ4_decompress_safe_forceExtDict(const char *source, char *dest,
+@@ -511,22 +672,19 @@ int LZ4_decompress_safe_forceExtDict(const char *source, char *dest,
  				     int compressedSize, int maxOutputSize,
  				     const void *dictStart, size_t dictSize)
  {
@@ -3143,7 +3151,7 @@ index fd1728d94bab..da2c32011ea3 100644
  }
  
  /*
-@@ -534,43 +694,39 @@ static int LZ4_decompress_fast_extDict(const char *source, char *dest,
+@@ -534,43 +692,39 @@ static int LZ4_decompress_fast_extDict(const char *source, char *dest,
   * of the dictionary is passed as prefix, and the second via dictStart + dictSize.
   * These routines are used only once, in LZ4_decompress_*_continue().
   */
@@ -3203,7 +3211,7 @@ index fd1728d94bab..da2c32011ea3 100644
  	return 1;
  }
  
-@@ -585,7 +741,8 @@ int LZ4_setStreamDecode(LZ4_streamDecode_t *LZ4_streamDecode,
+@@ -585,7 +739,8 @@ int LZ4_setStreamDecode(LZ4_streamDecode_t *LZ4_streamDecode,
   * and indicate where it stands using LZ4_setStreamDecode()
   */
  int LZ4_decompress_safe_continue(LZ4_streamDecode_t *LZ4_streamDecode,
@@ -3213,7 +3221,7 @@ index fd1728d94bab..da2c32011ea3 100644
  {
  	LZ4_streamDecode_t_internal *lz4sd =
  		&LZ4_streamDecode->internal_donotuse;
-@@ -594,85 +751,90 @@ int LZ4_decompress_safe_continue(LZ4_streamDecode_t *LZ4_streamDecode,
+@@ -594,85 +749,90 @@ int LZ4_decompress_safe_continue(LZ4_streamDecode_t *LZ4_streamDecode,
  	if (lz4sd->prefixSize == 0) {
  		/* The first call, no dictionary yet. */
  		assert(lz4sd->extDictSize == 0);
@@ -3341,7 +3349,7 @@ index fd1728d94bab..da2c32011ea3 100644
  	return result;
  }
  
-@@ -681,28 +843,31 @@ int LZ4_decompress_safe_usingDict(const char *source, char *dest,
+@@ -681,28 +841,31 @@ int LZ4_decompress_safe_usingDict(const char *source, char *dest,
  				  const char *dictStart, int dictSize)
  {
  	if (dictSize == 0)
@@ -3386,7 +3394,7 @@ index fd1728d94bab..da2c32011ea3 100644
  }
  
  #ifndef STATIC
-@@ -717,4 +882,4 @@ EXPORT_SYMBOL(LZ4_decompress_fast_usingDict);
+@@ -717,4 +880,4 @@ EXPORT_SYMBOL(LZ4_decompress_fast_usingDict);
  
  MODULE_LICENSE("Dual BSD/GPL");
  MODULE_DESCRIPTION("LZ4 decompressor");
@@ -3394,7 +3402,7 @@ index fd1728d94bab..da2c32011ea3 100644
 +#endif
 \ No newline at end of file
 diff --git a/lib/lz4/lz4defs.h b/lib/lz4/lz4defs.h
-index 673bd206aa98..aaea105bb915 100644
+index 673bd206aa98b..aaea105bb915c 100644
 --- a/lib/lz4/lz4defs.h
 +++ b/lib/lz4/lz4defs.h
 @@ -36,7 +36,7 @@
@@ -3617,7 +3625,7 @@ index 673bd206aa98..aaea105bb915 100644
 +#endif
 \ No newline at end of file
 diff --git a/lib/lz4/lz4hc_compress.c b/lib/lz4/lz4hc_compress.c
-index e7ac8694b797..8e64954ab0f8 100644
+index e7ac8694b797d..8e64954ab0f8f 100644
 --- a/lib/lz4/lz4hc_compress.c
 +++ b/lib/lz4/lz4hc_compress.c
 @@ -293,7 +293,7 @@ static FORCE_INLINE int LZ4HC_encodeSequence(
@@ -3655,5 +3663,5 @@ index e7ac8694b797..8e64954ab0f8 100644
 +MODULE_DESCRIPTION("LZ4 HC compressor");
 \ No newline at end of file
 -- 
-2.49.0
+2.48.1
 
