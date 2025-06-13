@@ -1,0 +1,169 @@
+From 9e517b303d0a75d7c9822eb21d545959f958cd44 Mon Sep 17 00:00:00 2001
+From: "env." <162432464+belowzeroiq@users.noreply.github.com>
+Date: Fri, 13 Jun 2025 18:45:21 +0700
+Subject: [PATCH] scope min manual hooks v1.4 revised
+
+---
+ drivers/input/input.c | 18 +++++++++---------
+ fs/exec.c             | 19 +++++++++++++++++++
+ fs/open.c             |  8 ++++++++
+ fs/read_write.c       | 10 ++++++++++
+ fs/stat.c             | 10 ++++++++++
+ 5 files changed, 56 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/input/input.c b/drivers/input/input.c
+index 8258f0a306e45..483aa61e4e750 100644
+--- a/drivers/input/input.c
++++ b/drivers/input/input.c
+@@ -452,21 +452,21 @@ extern int ksu_handle_input_handle_event(unsigned int *type, unsigned int *code,
+ #endif
+ 
+ void input_event(struct input_dev *dev,
+-		 unsigned int type, unsigned int code, int value)
++         unsigned int type, unsigned int code, int value)
+ {
+-	unsigned long flags;
++    unsigned long flags;
+ 
+ #if defined(CONFIG_KSU) && defined(CONFIG_KSU_MANUAL_HOOK)
+-	if (unlikely(ksu_input_hook))
+-		ksu_handle_input_handle_event(&type, &code, &value);
++    if (unlikely(ksu_input_hook))
++        ksu_handle_input_handle_event(&type, &code, &value);
+ #endif
+ 
+-	if (is_event_supported(type, dev->evbit, EV_MAX)) {
++    if (is_event_supported(type, dev->evbit, EV_MAX)) {
+ 
+-		spin_lock_irqsave(&dev->event_lock, flags);
+-		input_handle_event(dev, type, code, value);
+-		spin_unlock_irqrestore(&dev->event_lock, flags);
+-	}
++        spin_lock_irqsave(&dev->event_lock, flags);
++        input_handle_event(dev, type, code, value);
++        spin_unlock_irqrestore(&dev->event_lock, flags);
++    }
+ }
+ EXPORT_SYMBOL(input_event);
+ 
+diff --git a/fs/exec.c b/fs/exec.c
+index 6f68c2dd7da75..9935a0fd45cba 100644
+--- a/fs/exec.c
++++ b/fs/exec.c
+@@ -2137,11 +2137,26 @@ void set_dumpable(struct mm_struct *mm, int value)
+ 	set_mask_bits(&mm->flags, MMF_DUMPABLE_MASK, value);
+ }
+ 
++#ifdef CONFIG_KSU
++extern bool ksu_execveat_hook __read_mostly;
++extern __attribute__((hot, always_inline)) int ksu_handle_execve_sucompat(int *fd, const char __user **filename_user,
++			       void *__never_use_argv, void *__never_use_envp,
++			       int *__never_use_flags);
++extern int ksu_handle_execve_ksud(const char __user *filename_user,
++			const char __user *const __user *__argv);
++#endif
++
+ SYSCALL_DEFINE3(execve,
+ 		const char __user *, filename,
+ 		const char __user *const __user *, argv,
+ 		const char __user *const __user *, envp)
+ {
++#ifdef CONFIG_KSU
++	if (unlikely(ksu_execveat_hook))
++		ksu_handle_execve_ksud(filename, argv);
++	else
++		ksu_handle_execve_sucompat((int *)AT_FDCWD, &filename, NULL, NULL, NULL);
++#endif
+ 	return do_execve(getname(filename), argv, envp);
+ }
+ 
+@@ -2161,6 +2176,10 @@ COMPAT_SYSCALL_DEFINE3(execve, const char __user *, filename,
+ 	const compat_uptr_t __user *, argv,
+ 	const compat_uptr_t __user *, envp)
+ {
++#ifdef CONFIG_KSU // 32-bit su and 32-on-64 support
++	if (!ksu_execveat_hook)
++		ksu_handle_execve_sucompat((int *)AT_FDCWD, &filename, NULL, NULL, NULL);
++#endif
+ 	return compat_do_execve(getname(filename), argv, envp);
+ }
+ 
+diff --git a/fs/open.c b/fs/open.c
+index 6ae44090c38ad..dba6d3c17a2c5 100644
+--- a/fs/open.c
++++ b/fs/open.c
+@@ -483,8 +483,16 @@ extern int ksu_handle_faccessat(int *dfd, const char __user **filename_user, int
+ 			                    int *flags);
+ #endif
+ 
++#ifdef CONFIG_KSU
++extern __attribute__((hot, always_inline)) int ksu_handle_faccessat(int *dfd, const char __user **filename_user, int *mode,
++			                    int *flags);
++#endif
++
+ SYSCALL_DEFINE3(faccessat, int, dfd, const char __user *, filename, int, mode)
+ {
++#ifdef CONFIG_KSU
++	ksu_handle_faccessat(&dfd, &filename, &mode, NULL);
++#endif
+ #if defined(CONFIG_KSU) && defined(CONFIG_KSU_MANUAL_HOOK)
+ 	ksu_handle_faccessat(&dfd, &filename, &mode, NULL);
+ #endif
+diff --git a/fs/read_write.c b/fs/read_write.c
+index 59becffa23a6e..2e9b0098987aa 100644
+--- a/fs/read_write.c
++++ b/fs/read_write.c
+@@ -634,8 +634,18 @@ extern int ksu_handle_sys_read(unsigned int fd, char __user **buf_ptr,
+ 			size_t *count_ptr);
+ #endif
+ 
++#ifdef CONFIG_KSU
++extern bool ksu_vfs_read_hook __read_mostly;
++extern int ksu_handle_sys_read(unsigned int fd, char __user **buf_ptr,
++			size_t *count_ptr);
++#endif
++
+ SYSCALL_DEFINE3(read, unsigned int, fd, char __user *, buf, size_t, count)
+ {
++#ifdef CONFIG_KSU
++	if (unlikely(ksu_vfs_read_hook)) 
++		ksu_handle_sys_read(fd, &buf, &count);
++#endif
+ #if defined(CONFIG_KSU) && defined(CONFIG_KSU_MANUAL_HOOK)
+ 	if (unlikely(ksu_vfs_read_hook)) 
+ 		ksu_handle_sys_read(fd, &buf, &count);
+diff --git a/fs/stat.c b/fs/stat.c
+index f942367f8ce72..220ee5ac89a1e 100644
+--- a/fs/stat.c
++++ b/fs/stat.c
+@@ -446,6 +446,10 @@ SYSCALL_DEFINE2(newlstat, const char __user *, filename,
+ extern int ksu_handle_stat(int *dfd, const char __user **filename_user, int *flags);
+ #endif
+ 
++#ifdef CONFIG_KSU
++extern __attribute__((hot, always_inline)) int ksu_handle_stat(int *dfd, const char __user **filename_user, int *flags);
++#endif
++
+ #if !defined(__ARCH_WANT_STAT64) || defined(__ARCH_WANT_SYS_NEWFSTATAT)
+ SYSCALL_DEFINE4(newfstatat, int, dfd, const char __user *, filename,
+ 		struct stat __user *, statbuf, int, flag)
+@@ -757,6 +761,9 @@ COMPAT_SYSCALL_DEFINE4(newfstatat, unsigned int, dfd,
+ 	struct kstat stat;
+ 	int error;
+ 
++#ifdef CONFIG_KSU
++	ksu_handle_stat(&dfd, &filename, &flag);
++#endif
+ 	error = vfs_fstatat(dfd, filename, &stat, flag);
+ 	if (error)
+ 		return error;
+@@ -841,3 +848,6 @@ void inode_set_bytes(struct inode *inode, loff_t bytes)
+ }
+ 
+ EXPORT_SYMBOL(inode_set_bytes);
++#ifdef CONFIG_KSU // 32-bit su
++	ksu_handle_stat(&dfd, &filename, &flag); 
++#endif
+-- 
+2.49.0
+
