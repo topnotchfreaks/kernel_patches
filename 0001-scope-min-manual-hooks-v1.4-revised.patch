@@ -1,4 +1,4 @@
-From 9e517b303d0a75d7c9822eb21d545959f958cd44 Mon Sep 17 00:00:00 2001
+From 55db792fd66f0bcc590bf6258a7465b03a10a13d Mon Sep 17 00:00:00 2001
 From: "env." <162432464+belowzeroiq@users.noreply.github.com>
 Date: Fri, 13 Jun 2025 18:45:21 +0700
 Subject: [PATCH] scope min manual hooks v1.4 revised
@@ -8,8 +8,8 @@ Subject: [PATCH] scope min manual hooks v1.4 revised
  fs/exec.c             | 19 +++++++++++++++++++
  fs/open.c             |  8 ++++++++
  fs/read_write.c       | 10 ++++++++++
- fs/stat.c             | 10 ++++++++++
- 5 files changed, 56 insertions(+), 9 deletions(-)
+ fs/stat.c             |  7 +++++++
+ 5 files changed, 53 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/input/input.c b/drivers/input/input.c
 index 8258f0a306e45..483aa61e4e750 100644
@@ -133,7 +133,7 @@ index 59becffa23a6e..2e9b0098987aa 100644
  	if (unlikely(ksu_vfs_read_hook)) 
  		ksu_handle_sys_read(fd, &buf, &count);
 diff --git a/fs/stat.c b/fs/stat.c
-index f942367f8ce72..220ee5ac89a1e 100644
+index f942367f8ce72..2ae79a460bdd4 100644
 --- a/fs/stat.c
 +++ b/fs/stat.c
 @@ -446,6 +446,10 @@ SYSCALL_DEFINE2(newlstat, const char __user *, filename,
@@ -157,13 +157,6 @@ index f942367f8ce72..220ee5ac89a1e 100644
  	error = vfs_fstatat(dfd, filename, &stat, flag);
  	if (error)
  		return error;
-@@ -841,3 +848,6 @@ void inode_set_bytes(struct inode *inode, loff_t bytes)
- }
- 
- EXPORT_SYMBOL(inode_set_bytes);
-+#ifdef CONFIG_KSU // 32-bit su
-+	ksu_handle_stat(&dfd, &filename, &flag); 
-+#endif
 -- 
 2.49.0
 
