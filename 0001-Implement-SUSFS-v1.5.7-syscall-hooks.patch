@@ -1,7 +1,7 @@
-From 6d340f4edf168b6bbf885f24cc9fc8916683b173 Mon Sep 17 00:00:00 2001
-From: "env." <162432464+belowzeroiq@users.noreply.github.com>
-Date: Fri, 13 Jun 2025 18:11:06 +0700
-Subject: [PATCH] Implement-SuSFS-v1.5.7-syscall-hooks
+From 964d0394da2f42a02e63a636ce4665f66b8f6c3c Mon Sep 17 00:00:00 2001
+From: "env." <belowzeroiq@proton.me>
+Date: Wed, 21 May 2025 21:35:54 +0700
+Subject: [PATCH] Implement-SUSFS-v1.5.7-syscall-hooks
 
 ---
  drivers/input/input.c     |  10 +
@@ -42,7 +42,7 @@ Subject: [PATCH] Implement-SuSFS-v1.5.7-syscall-hooks
  create mode 100644 include/linux/susfs_def.h
 
 diff --git a/drivers/input/input.c b/drivers/input/input.c
-index 171f71bd4c2a2..8258f0a306e45 100644
+index 171f71bd4c2a..8258f0a306e4 100644
 --- a/drivers/input/input.c
 +++ b/drivers/input/input.c
 @@ -446,11 +446,21 @@ static void input_handle_event(struct input_dev *dev,
@@ -68,7 +68,7 @@ index 171f71bd4c2a2..8258f0a306e45 100644
  
  		spin_lock_irqsave(&dev->event_lock, flags);
 diff --git a/drivers/tty/pty.c b/drivers/tty/pty.c
-index 752dab3356d72..15bc64d77bedd 100644
+index 752dab3356d7..15bc64d77bed 100644
 --- a/drivers/tty/pty.c
 +++ b/drivers/tty/pty.c
 @@ -702,11 +702,18 @@ static struct tty_struct *ptm_unix98_lookup(struct tty_driver *driver,
@@ -91,7 +91,7 @@ index 752dab3356d72..15bc64d77bedd 100644
  	tty = devpts_get_priv(file->f_path.dentry);
  	mutex_unlock(&devpts_mutex);
 diff --git a/fs/Makefile b/fs/Makefile
-index e4adb988218c1..2461d8986ee57 100644
+index e4adb988218c..2461d8986ee5 100644
 --- a/fs/Makefile
 +++ b/fs/Makefile
 @@ -18,6 +18,8 @@ obj-y :=	open.o read_write.o file_table.o super.o \
@@ -104,7 +104,7 @@ index e4adb988218c1..2461d8986ee57 100644
  obj-y +=	buffer.o direct-io.o mpage.o
  else
 diff --git a/fs/dcache.c b/fs/dcache.c
-index 452668c9644d7..480b051fa9766 100644
+index 452668c9644d..480b051fa976 100644
 --- a/fs/dcache.c
 +++ b/fs/dcache.c
 @@ -32,6 +32,9 @@
@@ -144,7 +144,7 @@ index 452668c9644d7..480b051fa9766 100644
  		if (dentry->d_parent != parent)
  			goto next;
 diff --git a/fs/devpts/inode.c b/fs/devpts/inode.c
-index 4f25015aa5342..555e4cb31e65c 100644
+index 4f25015aa534..555e4cb31e65 100644
 --- a/fs/devpts/inode.c
 +++ b/fs/devpts/inode.c
 @@ -596,6 +596,11 @@ struct dentry *devpts_pty_new(struct pts_fs_info *fsi, int index, void *priv)
@@ -173,7 +173,7 @@ index 4f25015aa5342..555e4cb31e65c 100644
  		return NULL;
  	return dentry->d_fsdata;
 diff --git a/fs/exec.c b/fs/exec.c
-index b1b9db56a6092..6f68c2dd7da75 100644
+index b1b9db56a609..6f68c2dd7da7 100644
 --- a/fs/exec.c
 +++ b/fs/exec.c
 @@ -1891,6 +1891,12 @@ static int bprm_execve(struct linux_binprm *bprm,
@@ -240,7 +240,7 @@ index b1b9db56a6092..6f68c2dd7da75 100644
  }
  
 diff --git a/fs/namei.c b/fs/namei.c
-index ce97b60fe5578..be5d18de63842 100644
+index ce97b60fe557..be5d18de6384 100644
 --- a/fs/namei.c
 +++ b/fs/namei.c
 @@ -39,6 +39,9 @@
@@ -501,7 +501,7 @@ index ce97b60fe5578..be5d18de63842 100644
  	return filp;
  }
 diff --git a/fs/namespace.c b/fs/namespace.c
-index 18d2d37f1e2fe..b94deff5e71db 100644
+index 94db89c16b79..2ab3da358ff0 100644
 --- a/fs/namespace.c
 +++ b/fs/namespace.c
 @@ -32,10 +32,36 @@
@@ -656,7 +656,7 @@ index 18d2d37f1e2fe..b94deff5e71db 100644
  		if (err)
  			goto out_free_cache;
  
-@@ -963,11 +1061,26 @@ struct vfsmount *vfs_create_mount(struct fs_context *fc)
+@@ -967,11 +1065,26 @@ struct vfsmount *vfs_create_mount(struct fs_context *fc)
  {
  	struct mount *mnt;
  	struct user_namespace *fs_userns;
@@ -683,7 +683,7 @@ index 18d2d37f1e2fe..b94deff5e71db 100644
  	if (!mnt)
  		return ERR_PTR(-ENOMEM);
  
-@@ -984,6 +1097,27 @@ struct vfsmount *vfs_create_mount(struct fs_context *fc)
+@@ -988,6 +1101,27 @@ struct vfsmount *vfs_create_mount(struct fs_context *fc)
  	if (!initial_idmapping(fs_userns))
  		mnt->mnt.mnt_userns = get_user_ns(fs_userns);
  
@@ -711,7 +711,7 @@ index 18d2d37f1e2fe..b94deff5e71db 100644
  	lock_mount_hash();
  	list_add_tail(&mnt->mnt_instance, &mnt->mnt.mnt_sb->s_mounts);
  	unlock_mount_hash();
-@@ -1053,8 +1187,47 @@ static struct mount *clone_mnt(struct mount *old, struct dentry *root,
+@@ -1057,8 +1191,47 @@ static struct mount *clone_mnt(struct mount *old, struct dentry *root,
  	struct super_block *sb = old->mnt.mnt_sb;
  	struct mount *mnt;
  	int err;
@@ -760,7 +760,7 @@ index 18d2d37f1e2fe..b94deff5e71db 100644
  	if (!mnt)
  		return ERR_PTR(-ENOMEM);
  
-@@ -1080,6 +1253,30 @@ static struct mount *clone_mnt(struct mount *old, struct dentry *root,
+@@ -1084,6 +1257,30 @@ static struct mount *clone_mnt(struct mount *old, struct dentry *root,
  	mnt->mnt.mnt_root = dget(root);
  	mnt->mnt_mountpoint = mnt->mnt.mnt_root;
  	mnt->mnt_parent = mnt;
@@ -791,7 +791,7 @@ index 18d2d37f1e2fe..b94deff5e71db 100644
  	lock_mount_hash();
  	list_add_tail(&mnt->mnt_instance, &sb->s_mounts);
  	unlock_mount_hash();
-@@ -1831,6 +2028,9 @@ struct mount *copy_tree(struct mount *mnt, struct dentry *dentry,
+@@ -1835,6 +2032,9 @@ struct mount *copy_tree(struct mount *mnt, struct dentry *dentry,
  					int flag)
  {
  	struct mount *res, *p, *q, *r, *parent;
@@ -801,7 +801,7 @@ index 18d2d37f1e2fe..b94deff5e71db 100644
  
  	if (!(flag & CL_COPY_UNBINDABLE) && IS_MNT_UNBINDABLE(mnt))
  		return ERR_PTR(-EINVAL);
-@@ -1847,6 +2047,9 @@ struct mount *copy_tree(struct mount *mnt, struct dentry *dentry,
+@@ -1851,6 +2051,9 @@ struct mount *copy_tree(struct mount *mnt, struct dentry *dentry,
  	p = mnt;
  	list_for_each_entry(r, &mnt->mnt_mounts, mnt_child) {
  		struct mount *s;
@@ -811,7 +811,7 @@ index 18d2d37f1e2fe..b94deff5e71db 100644
  		if (!is_subdir(r->mnt_mountpoint, dentry))
  			continue;
  
-@@ -1876,6 +2079,15 @@ struct mount *copy_tree(struct mount *mnt, struct dentry *dentry,
+@@ -1880,6 +2083,15 @@ struct mount *copy_tree(struct mount *mnt, struct dentry *dentry,
  			q = clone_mnt(p, p->mnt.mnt_root, flag);
  			if (IS_ERR(q))
  				goto out;
@@ -827,7 +827,7 @@ index 18d2d37f1e2fe..b94deff5e71db 100644
  			lock_mount_hash();
  			list_add_tail(&q->mnt_list, &res->mnt_list);
  			attach_mnt(q, parent, p->mnt_mp);
-@@ -2409,6 +2621,27 @@ static int do_loopback(struct path *path, const char *old_name,
+@@ -2413,6 +2625,27 @@ static int do_loopback(struct path *path, const char *old_name,
  		umount_tree(mnt, UMOUNT_SYNC);
  		unlock_mount_hash();
  	}
@@ -855,7 +855,7 @@ index 18d2d37f1e2fe..b94deff5e71db 100644
  out2:
  	unlock_mount(mp);
  out:
-@@ -3428,6 +3661,10 @@ struct mnt_namespace *copy_mnt_ns(unsigned long flags, struct mnt_namespace *ns,
+@@ -3432,6 +3665,10 @@ struct mnt_namespace *copy_mnt_ns(unsigned long flags, struct mnt_namespace *ns,
  	struct mount *old;
  	struct mount *new;
  	int copy_flags;
@@ -866,7 +866,7 @@ index 18d2d37f1e2fe..b94deff5e71db 100644
  
  	BUG_ON(!ns);
  
-@@ -3447,6 +3684,11 @@ struct mnt_namespace *copy_mnt_ns(unsigned long flags, struct mnt_namespace *ns,
+@@ -3451,6 +3688,11 @@ struct mnt_namespace *copy_mnt_ns(unsigned long flags, struct mnt_namespace *ns,
  	copy_flags = CL_COPY_UNBINDABLE | CL_EXPIRE;
  	if (user_ns != ns->user_ns)
  		copy_flags |= CL_SHARED_TO_SLAVE;
@@ -878,7 +878,7 @@ index 18d2d37f1e2fe..b94deff5e71db 100644
  	new = copy_tree(old, old->mnt.mnt_root, copy_flags);
  	if (IS_ERR(new)) {
  		namespace_unlock();
-@@ -3488,6 +3730,24 @@ struct mnt_namespace *copy_mnt_ns(unsigned long flags, struct mnt_namespace *ns,
+@@ -3492,6 +3734,24 @@ struct mnt_namespace *copy_mnt_ns(unsigned long flags, struct mnt_namespace *ns,
  		while (p->mnt.mnt_root != q->mnt.mnt_root)
  			p = next_mnt(p, old);
  	}
@@ -903,7 +903,7 @@ index 18d2d37f1e2fe..b94deff5e71db 100644
  	namespace_unlock();
  
  	if (rootmnt)
-@@ -3560,6 +3820,13 @@ SYSCALL_DEFINE5(mount, char __user *, dev_name, char __user *, dir_name,
+@@ -3564,6 +3824,13 @@ SYSCALL_DEFINE5(mount, char __user *, dev_name, char __user *, dir_name,
  
  	ret = do_mount(kernel_dev, dir_name, kernel_type, flags, options);
  
@@ -917,7 +917,7 @@ index 18d2d37f1e2fe..b94deff5e71db 100644
  	kfree(options);
  out_data:
  	kfree(kernel_dev);
-@@ -3782,6 +4049,13 @@ SYSCALL_DEFINE5(move_mount,
+@@ -3786,6 +4053,13 @@ SYSCALL_DEFINE5(move_mount,
  	path_put(&to_path);
  out_from:
  	path_put(&from_path);
@@ -931,7 +931,7 @@ index 18d2d37f1e2fe..b94deff5e71db 100644
  	return ret;
  }
  
-@@ -4654,3 +4928,37 @@ const struct proc_ns_operations mntns_operations = {
+@@ -4658,3 +4932,37 @@ const struct proc_ns_operations mntns_operations = {
  	.install	= mntns_install,
  	.owner		= mntns_owner,
  };
@@ -970,7 +970,7 @@ index 18d2d37f1e2fe..b94deff5e71db 100644
 +}
 +#endif
 diff --git a/fs/notify/fdinfo.c b/fs/notify/fdinfo.c
-index 3451708fd035c..e78db64dbc570 100644
+index 3451708fd035..e78db64dbc57 100644
 --- a/fs/notify/fdinfo.c
 +++ b/fs/notify/fdinfo.c
 @@ -12,6 +12,9 @@
@@ -1061,7 +1061,7 @@ index 3451708fd035c..e78db64dbc570 100644
  			   inode_mark->wd, inode->i_ino, inode->i_sb->s_dev,
  			   inotify_mark_user_mask(mark));
 diff --git a/fs/open.c b/fs/open.c
-index 39779f1ba4e15..6ae44090c38ad 100644
+index 39779f1ba4e1..6ae44090c38a 100644
 --- a/fs/open.c
 +++ b/fs/open.c
 @@ -394,6 +394,12 @@ static const struct cred *access_override_creds(void)
@@ -1108,7 +1108,7 @@ index 39779f1ba4e15..6ae44090c38ad 100644
  }
  
 diff --git a/fs/overlayfs/inode.c b/fs/overlayfs/inode.c
-index 10da6500016ea..614d4a117d8e5 100644
+index 10da6500016e..614d4a117d8e 100644
 --- a/fs/overlayfs/inode.c
 +++ b/fs/overlayfs/inode.c
 @@ -165,6 +165,21 @@ int ovl_getattr(struct user_namespace *mnt_userns, const struct path *path,
@@ -1134,7 +1134,7 @@ index 10da6500016ea..614d4a117d8e5 100644
  	old_cred = ovl_override_creds(dentry->d_sb);
  	err = vfs_getattr(&realpath, stat, request_mask, flags);
 diff --git a/fs/overlayfs/readdir.c b/fs/overlayfs/readdir.c
-index 828561ac8cb30..79cfbf082684b 100644
+index 828561ac8cb3..79cfbf082684 100644
 --- a/fs/overlayfs/readdir.c
 +++ b/fs/overlayfs/readdir.c
 @@ -935,7 +935,19 @@ static int ovl_dir_open(struct inode *inode, struct file *file)
@@ -1158,7 +1158,7 @@ index 828561ac8cb30..79cfbf082684b 100644
  	if (IS_ERR(realfile)) {
  		kfree(od);
 diff --git a/fs/overlayfs/super.c b/fs/overlayfs/super.c
-index 60f9bb2ab1208..2b16aafbbfa70 100644
+index 60f9bb2ab120..2b16aafbbfa7 100644
 --- a/fs/overlayfs/super.c
 +++ b/fs/overlayfs/super.c
 @@ -325,6 +325,18 @@ static int ovl_statfs(struct dentry *dentry, struct kstatfs *buf)
@@ -1181,7 +1181,7 @@ index 60f9bb2ab1208..2b16aafbbfa70 100644
  
  	err = vfs_statfs(&path, buf);
 diff --git a/fs/proc/bootconfig.c b/fs/proc/bootconfig.c
-index 2e244ada1f970..792e1cb04b11c 100644
+index 2e244ada1f97..792e1cb04b11 100644
 --- a/fs/proc/bootconfig.c
 +++ b/fs/proc/bootconfig.c
 @@ -12,8 +12,19 @@
@@ -1205,7 +1205,7 @@ index 2e244ada1f970..792e1cb04b11c 100644
  		seq_puts(m, saved_boot_config);
  	return 0;
 diff --git a/fs/proc/fd.c b/fs/proc/fd.c
-index 913bef0d2a36c..ebf8d1b0617cf 100644
+index 913bef0d2a36..ebf8d1b0617c 100644
 --- a/fs/proc/fd.c
 +++ b/fs/proc/fd.c
 @@ -13,6 +13,9 @@
@@ -1278,7 +1278,7 @@ index 913bef0d2a36c..ebf8d1b0617cf 100644
  	/* show_fd_locks() never deferences files so a stale value is safe */
  	show_fd_locks(m, file, files);
 diff --git a/fs/proc/task_mmu.c b/fs/proc/task_mmu.c
-index d56513a56baec..13d8c0df8fb12 100644
+index d56513a56bae..13d8c0df8fb1 100644
 --- a/fs/proc/task_mmu.c
 +++ b/fs/proc/task_mmu.c
 @@ -21,6 +21,9 @@
@@ -1321,7 +1321,7 @@ index d56513a56baec..13d8c0df8fb12 100644
  	}
  
 diff --git a/fs/proc_namespace.c b/fs/proc_namespace.c
-index 49650e54d2f88..35750b387fc44 100644
+index 49650e54d2f8..35750b387fc4 100644
 --- a/fs/proc_namespace.c
 +++ b/fs/proc_namespace.c
 @@ -12,6 +12,9 @@
@@ -1370,7 +1370,7 @@ index 49650e54d2f88..35750b387fc44 100644
  	if (sb->s_op->show_devname) {
  		seq_puts(m, "device ");
 diff --git a/fs/read_write.c b/fs/read_write.c
-index 3f68186207a94..59becffa23a6e 100644
+index 3f68186207a9..59becffa23a6 100644
 --- a/fs/read_write.c
 +++ b/fs/read_write.c
 @@ -628,8 +628,18 @@ ssize_t ksys_read(unsigned int fd, char __user *buf, size_t count)
@@ -1393,7 +1393,7 @@ index 3f68186207a94..59becffa23a6e 100644
  }
  
 diff --git a/fs/readdir.c b/fs/readdir.c
-index 09e8ed7d41614..a8ca7ea29259e 100644
+index 09e8ed7d4161..a8ca7ea29259 100644
 --- a/fs/readdir.c
 +++ b/fs/readdir.c
 @@ -21,9 +21,15 @@
@@ -1461,7 +1461,7 @@ index 09e8ed7d41614..a8ca7ea29259e 100644
  	if (unlikely(buf->error))
  		return buf->error;
 diff --git a/fs/stat.c b/fs/stat.c
-index 357a1db410ece..f942367f8ce72 100644
+index 357a1db410ec..f942367f8ce7 100644
 --- a/fs/stat.c
 +++ b/fs/stat.c
 @@ -17,6 +17,9 @@
@@ -1579,7 +1579,7 @@ index 357a1db410ece..f942367f8ce72 100644
  	if (error)
  		return error;
 diff --git a/fs/statfs.c b/fs/statfs.c
-index 2a37f9f3dba1f..36532f2559b78 100644
+index 2a37f9f3dba1..36532f2559b7 100644
 --- a/fs/statfs.c
 +++ b/fs/statfs.c
 @@ -9,6 +9,10 @@
@@ -1667,7 +1667,7 @@ index 2a37f9f3dba1f..36532f2559b78 100644
  	return err;
 diff --git a/fs/sus_su.c b/fs/sus_su.c
 new file mode 100644
-index 0000000000000..d140468d0714a
+index 000000000000..d140468d0714
 --- /dev/null
 +++ b/fs/sus_su.c
 @@ -0,0 +1,140 @@
@@ -1813,7 +1813,7 @@ index 0000000000000..d140468d0714a
 +}
 diff --git a/fs/susfs.c b/fs/susfs.c
 new file mode 100644
-index 0000000000000..78c283b4343de
+index 000000000000..78c283b4343d
 --- /dev/null
 +++ b/fs/susfs.c
 @@ -0,0 +1,911 @@
@@ -2729,7 +2729,7 @@ index 0000000000000..78c283b4343de
 +//void __init susfs_exit(void)
 +
 diff --git a/include/linux/mount.h b/include/linux/mount.h
-index 9fc79930799e3..0da7c62eb846b 100644
+index 9fc79930799e..0da7c62eb846 100644
 --- a/include/linux/mount.h
 +++ b/include/linux/mount.h
 @@ -78,7 +78,11 @@ struct vfsmount {
@@ -2745,7 +2745,7 @@ index 9fc79930799e3..0da7c62eb846b 100644
  
  static inline struct user_namespace *mnt_user_ns(const struct vfsmount *mnt)
 diff --git a/include/linux/sched.h b/include/linux/sched.h
-index 9c315023a2f8d..023c2899a6771 100644
+index 9c315023a2f8..023c2899a677 100644
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
 @@ -1514,8 +1514,16 @@ struct task_struct {
@@ -2767,7 +2767,7 @@ index 9c315023a2f8d..023c2899a6771 100644
  	 * New fields for task_struct should be added above here, so that
 diff --git a/include/linux/sus_su.h b/include/linux/sus_su.h
 new file mode 100644
-index 0000000000000..98e8f3b357ac2
+index 000000000000..98e8f3b357ac
 --- /dev/null
 +++ b/include/linux/sus_su.h
 @@ -0,0 +1,9 @@
@@ -2782,7 +2782,7 @@ index 0000000000000..98e8f3b357ac2
 +#endif
 diff --git a/include/linux/susfs.h b/include/linux/susfs.h
 new file mode 100644
-index 0000000000000..76382cdab0723
+index 000000000000..76382cdab072
 --- /dev/null
 +++ b/include/linux/susfs.h
 @@ -0,0 +1,186 @@
@@ -2974,7 +2974,7 @@ index 0000000000000..76382cdab0723
 +#endif
 diff --git a/include/linux/susfs_def.h b/include/linux/susfs_def.h
 new file mode 100644
-index 0000000000000..288e7677bcba9
+index 000000000000..288e7677bcba
 --- /dev/null
 +++ b/include/linux/susfs_def.h
 @@ -0,0 +1,62 @@
@@ -3041,7 +3041,7 @@ index 0000000000000..288e7677bcba9
 +
 +#endif // #ifndef KSU_SUSFS_DEF_H
 diff --git a/kernel/kallsyms.c b/kernel/kallsyms.c
-index e0d9f77cf2d4b..e2d41cc3d3ad0 100644
+index e0d9f77cf2d4..e2d41cc3d3ad 100644
 --- a/kernel/kallsyms.c
 +++ b/kernel/kallsyms.c
 @@ -761,8 +761,18 @@ static int s_show(struct seq_file *m, void *p)
@@ -3064,7 +3064,7 @@ index e0d9f77cf2d4b..e2d41cc3d3ad0 100644
  }
  
 diff --git a/kernel/sys.c b/kernel/sys.c
-index 0e76093073c78..e239a4f83e6ea 100644
+index 0e76093073c7..e239a4f83e6e 100644
 --- a/kernel/sys.c
 +++ b/kernel/sys.c
 @@ -1291,12 +1291,18 @@ static int override_release(char __user *release, size_t len)
