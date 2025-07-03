@@ -2,7 +2,7 @@ name: Check SUSFS Updates
 
 on:
   schedule:
-    - cron: '0 * * * *'  # Every hour, tweak as needed
+    - cron: '0 */6 * * *'  # Every 6 hours
   workflow_dispatch:
 
 jobs:
