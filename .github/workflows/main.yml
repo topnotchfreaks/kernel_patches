@@ -6,27 +6,20 @@ on:
     types:
       - completed
   workflow_dispatch:
-    inputs:
-      susfs_repo:
-        description: 'SUSFS repository'
-        required: true
-        default: 'ShirkNeko/susfs4ksu'
-      susfs_branch:
-        description: 'SUSFS branch to track'
-        required: true
-        default: 'gki-android13-5.15'
-      kernel_repo:
-        description: 'Kernel repository'
-        required: true
-        default: 'topnotchfreaks/kernel_msm-5.15'
-      kernel_branch:
-        description: 'Kernel branch'
-        required: true
-        default: 'google'
 
 jobs:
   generate-patches:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        branch_config:
+          - { susfs_branch: 'gki-android12-5.10', kernel_branch: 'android12-5.10-lts', kernel_version: '5.10', android_version: '12' }
+          - { susfs_branch: 'gki-android13-5.10', kernel_branch: 'android13-5.10-lts', kernel_version: '5.10', android_version: '13' }
+          - { susfs_branch: 'gki-android13-5.15', kernel_branch: 'android13-5.15-lts', kernel_version: '5.15', android_version: '13' }
+          - { susfs_branch: 'gki-android14-5.15', kernel_branch: 'android14-5.15-lts', kernel_version: '5.15', android_version: '14' }
+          - { susfs_branch: 'gki-android14-6.1', kernel_branch: 'android14-6.1-lts', kernel_version: '6.1', android_version: '14' }
+          - { susfs_branch: 'gki-android15-6.6', kernel_branch: 'android-mainline', kernel_version: '6.6', android_version: '15' }
+    name: Generate SUSFS Patches for Android ${{ matrix.branch_config.android_version }} (Kernel ${{ matrix.branch_config.kernel_version }})
 
     steps:
     - name: Set up Git identity
@@ -38,8 +31,8 @@ jobs:
       run: |
         git clone \
           --depth 1 \
-          -b "${{ github.event.inputs.susfs_branch || 'gki-android13-5.15' }}" \
-          "https://github.com/${{ github.event.inputs.susfs_repo || 'ShirkNeko/susfs4ksu' }}.git" \
+          -b "${{ matrix.branch_config.susfs_branch }}" \
+          "https://github.com/ShirkNeko/susfs4ksu.git" \
           susfs-source
             
     - name: Extract SUSFS version and commit hash
@@ -47,7 +40,7 @@ jobs:
       run: |
         SUSFS_VERSION=$(grep -oP '#define SUSFS_VERSION "\K[^"]+' susfs-source/kernel_patches/include/linux/susfs.h)
         SUSFS_COMMIT_HASH=$(git -C susfs-source rev-parse --short HEAD)
-        TAG_NAME="${SUSFS_VERSION}-${SUSFS_COMMIT_HASH}"
+        TAG_NAME="${SUSFS_VERSION}-${SUSFS_COMMIT_HASH}-android${{ matrix.branch_config.android_version }}-${{ matrix.branch_config.kernel_version }}"
         echo "SUSFS_VERSION=${SUSFS_VERSION}" >> $GITHUB_OUTPUT
         echo "tag_name=${TAG_NAME}" >> $GITHUB_OUTPUT
 
@@ -55,8 +48,8 @@ jobs:
       run: |
         git clone \
           --depth 50 \
-          -b "${{ github.event.inputs.kernel_branch || 'google' }}" \
-          "https://github.com/${{ github.event.inputs.kernel_repo || 'topnotchfreaks/kernel_msm-5.15' }}.git" \
+          -b "${{ matrix.branch_config.kernel_branch }}" \
+          "https://android.googlesource.com/kernel/common" \
           kernel-source
 
     - name: Generate patches (exclude KernelSU only)
@@ -70,20 +63,21 @@ jobs:
         fi
 
         # Apply the additional patch
-        if [ -f "../susfs-source/kernel_patches/50_add_susfs_in_gki-android13-5.15.patch" ]; then
-          echo "Applying 50_add_susfs_in_gki-android13-5.15.patch..."
-          git apply --whitespace=fix ../susfs-source/kernel_patches/50_add_susfs_in_gki-android13-5.15.patch
+        PATCH_FILE="../susfs-source/kernel_patches/50_add_susfs_in_${{ matrix.branch_config.susfs_branch }}.patch"
+        if [ -f "$PATCH_FILE" ]; then
+          echo "Applying patch..."
+          git apply --whitespace=fix "$PATCH_FILE"
         else
-          echo "Patch file not found!"
+          echo "Patch file not found: $PATCH_FILE"
           exit 1
         fi
 
         # Generate patches
         git add -A
         if ! git diff --staged --quiet; then
-          git commit -m "Implement SUSFS ${{ steps.set_tag.outputs.SUSFS_VERSION }}"
+          git commit -m "Implement SUSFS ${{ steps.set_tag.outputs.SUSFS_VERSION }} for Android ${{ matrix.branch_config.android_version }} (Kernel ${{ matrix.branch_config.kernel_version }})"
           mkdir -p ../generated-patches
-          git format-patch "${{ github.event.inputs.kernel_branch || 'google' }}" --output-directory ../generated-patches/
+          git format-patch "${{ matrix.branch_config.kernel_branch }}" --output-directory ../generated-patches/
         else
           echo "No changes detected!"
           exit 1
@@ -94,11 +88,14 @@ jobs:
       uses: softprops/action-gh-release@v1
       with:
         tag_name: ${{ steps.set_tag.outputs.tag_name }}
-        name: "SUSFS Patches (${{ steps.set_tag.outputs.tag_name }})"
+        name: "SUSFS Patches for Android ${{ matrix.branch_config.android_version }} (Kernel ${{ matrix.branch_config.kernel_version }})"
         body: |
           **Generated from:**
-          - SUSFS: `${{ github.event.inputs.susfs_repo || 'ShirkNeko/susfs4ksu' }}@${{ github.event.inputs.susfs_branch || 'gki-android13-5.15' }}`
-          - Kernel: `${{ github.event.inputs.kernel_repo || 'topnotchfreaks/kernel_msm-5.15' }}@${{ github.event.inputs.kernel_branch || 'google' }}`
+          - SUSFS: `ShirkNeko/susfs4ksu@${{ matrix.branch_config.susfs_branch }}`
+          - Kernel: `android/common@${{ matrix.branch_config.kernel_branch }}`
+
+          **Android Version:** ${{ matrix.branch_config.android_version }}
+          **Kernel Version:** ${{ matrix.branch_config.kernel_version }}
 
           **Includes:**
           - `fs/` modifications
