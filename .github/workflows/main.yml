@@ -75,7 +75,7 @@ jobs:
           git commit -m "Implement SUSFS ${{ steps.set_tag.outputs.SUSFS_VERSION }}"
           mkdir -p ../generated-patches
           git format-patch "${{ github.event.inputs.kernel_branch || 'google' }}" --output-directory ../generated-patches/
-          git diff "${{ github.event.inputs.kernel_branch || 'google' }}" > ../generated-patches/susfs-combined.patch
+          # git diff "${{ github.event.inputs.kernel_branch || 'google' }}" > ../generated-patches/susfs-combined.patch
         else
           echo "No changes detected!"
           exit 1
