@@ -58,7 +58,7 @@ jobs:
             SUSFS_COMMIT_HASH=$(git -C "susfs-$susfs_branch" rev-parse --short HEAD)
             echo "SUSFS_VERSION=${SUSFS_VERSION}" >> $GITHUB_OUTPUT
             echo "SUSFS_COMMIT_HASH=${SUSFS_COMMIT_HASH}" >> $GITHUB_OUTPUT
-            echo "tag_name=v${SUSFS_VERSION}-${SUSFS_COMMIT_HASH}" >> $GITHUB_OUTPUT
+            echo "tag_name=${SUSFS_VERSION}-${SUSFS_COMMIT_HASH}" >> $GITHUB_OUTPUT
           fi
           
           # Clone kernel source
