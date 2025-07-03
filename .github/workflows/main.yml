@@ -119,6 +119,7 @@ jobs:
     - name: Commit and push changes
       if: steps.check_changes.outputs.changes == 'true'
       run: |
+        git remote set-url origin https://${{ secrets.GH_TOKEN }}@github.com/${{ github.repository }}.git
         git add patches/
         git commit -m "Auto-update SUSFS patches - $(date -u)"
         git push origin main
