@@ -47,7 +47,7 @@ jobs:
     - name: Clone kernel source
       run: |
         git clone \
-          --depth 50 \
+          --depth 1 \
           -b "${{ matrix.branch_config.kernel_branch }}" \
           "https://android.googlesource.com/kernel/common" \
           kernel-source
