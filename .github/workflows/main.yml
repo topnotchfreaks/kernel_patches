@@ -1,8 +1,10 @@
 name: Generate SUSFS Patches
 
 on:
-  schedule:
-    - cron: '0 2 * * *'
+  workflow_run:
+    workflows: ["Check SUSFS Updates"]
+    types:
+      - completed
   workflow_dispatch:
     inputs:
       susfs_repo:
