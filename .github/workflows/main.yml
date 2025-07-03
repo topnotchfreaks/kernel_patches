@@ -69,13 +69,21 @@ jobs:
           rsync -av --exclude='KernelSU/' ../susfs-source/kernel_patches/ .
         fi
 
+        # Apply the additional patch
+        if [ -f "../susfs-source/kernel_patches/50_add_susfs_in_gki-android13-5.15.patch" ]; then
+          echo "Applying 50_add_susfs_in_gki-android13-5.15.patch..."
+          git apply --whitespace=fix ../susfs-source/kernel_patches/50_add_susfs_in_gki-android13-5.15.patch
+        else
+          echo "Patch file not found!"
+          exit 1
+        fi
+
         # Generate patches
         git add -A
         if ! git diff --staged --quiet; then
           git commit -m "Implement SUSFS ${{ steps.set_tag.outputs.SUSFS_VERSION }}"
           mkdir -p ../generated-patches
           git format-patch "${{ github.event.inputs.kernel_branch || 'google' }}" --output-directory ../generated-patches/
-          # git diff "${{ github.event.inputs.kernel_branch || 'google' }}" > ../generated-patches/susfs-combined.patch
         else
           echo "No changes detected!"
           exit 1
