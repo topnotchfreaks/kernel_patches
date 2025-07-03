@@ -70,7 +70,7 @@ jobs:
         # Generate patches
         git add -A
         if ! git diff --staged --quiet; then
-          git commit -m "Implement SUSFS $SUSFS_VERSION"
+          git commit -m "Implement SUSFS ${{ steps.set_tag.outputs.SUSFS_VERSION }}"
           mkdir -p ../generated-patches
           git format-patch "${{ github.event.inputs.kernel_branch || 'google' }}" --output-directory ../generated-patches/
           git diff "${{ github.event.inputs.kernel_branch || 'google' }}" > ../generated-patches/susfs-combined.patch
