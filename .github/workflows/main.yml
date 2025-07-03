@@ -27,6 +27,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    - name: Set up Git identity
+      run: |
+        git config --global user.name "belowzeroiq"
+        git config --global user.email "belowzeroiq@proton.me"
+
     - name: Clone SUSFS source
       run: |
         git clone \
