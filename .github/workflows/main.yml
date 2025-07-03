@@ -10,9 +10,6 @@ on:
 jobs:
   generate-patches:
     runs-on: ubuntu-latest
-    outputs:
-      release_files: ${{ steps.prepare-release.outputs.release_files }}
-      release_body: ${{ steps.prepare-release.outputs.release_body }}
     
     steps:
     - name: Set up Git identity
@@ -25,7 +22,7 @@ jobs:
 
     - name: Set up environment
       run: |
-        mkdir -p all-patches
+        mkdir -p generated-patches
         echo "## SUSFS Patches for All Supported Branches" > release_body.md
         echo "" >> release_body.md
         echo "**Generated at:** $(date)" >> release_body.md
@@ -44,6 +41,9 @@ jobs:
           ["gki-android15-6.6"]="android15-6.6-lts 6.6 15"
         )
 
+        SUSFS_VERSION=""
+        SUSFS_COMMIT_HASH=""
+        
         for susfs_branch in "${!branch_configs[@]}"; do
           IFS=' ' read -r kernel_branch kernel_version android_version <<< "${branch_configs[$susfs_branch]}"
           
@@ -52,9 +52,11 @@ jobs:
           # Clone SUSFS source
           git clone --depth 1 -b "$susfs_branch" https://github.com/ShirkNeko/susfs4ksu.git "susfs-$susfs_branch"
           
-          # Get SUSFS version
-          SUSFS_VERSION=$(grep -oP '#define SUSFS_VERSION "\K[^"]+' "susfs-$susfs_branch/kernel_patches/include/linux/susfs.h")
-          SUSFS_COMMIT_HASH=$(git -C "susfs-$susfs_branch" rev-parse --short HEAD)
+          # Get SUSFS version (only once)
+          if [ -z "$SUSFS_VERSION" ]; then
+            SUSFS_VERSION=$(grep -oP '#define SUSFS_VERSION "\K[^"]+' "susfs-$susfs_branch/kernel_patches/include/linux/susfs.h")
+            SUSFS_COMMIT_HASH=$(git -C "susfs-$susfs_branch" rev-parse --short HEAD)
+          fi
           
           # Clone kernel source
           git clone --depth 1 -b "$kernel_branch" https://android.googlesource.com/kernel/common "kernel-$kernel_branch"
@@ -82,15 +84,17 @@ jobs:
           git add -A
           if ! git diff --staged --quiet; then
             git commit -m "Implement SUSFS $SUSFS_VERSION for Android $android_version (Kernel $kernel_version)"
-            mkdir -p "../all-patches/$susfs_branch"
-            git format-patch "$kernel_branch" --output-directory "../all-patches/$susfs_branch/"
+            mkdir -p "../generated-patches/$susfs_branch"
+            git format-patch "$kernel_branch" --output-directory "../generated-patches/$susfs_branch/"
             
             # Add to release body
             echo "### Android $android_version (Kernel $kernel_version)" >> ../release_body.md
             echo "- SUSFS Branch: \`$susfs_branch\`" >> ../release_body.md
             echo "- Kernel Branch: \`$kernel_branch\`" >> ../release_body.md
-            echo "- SUSFS Version: \`$SUSFS_VERSION\`" >> ../release_body.md
-            echo "- SUSFS Commit: \`$SUSFS_COMMIT_HASH\`" >> ../release_body.md
+            echo "- Patch Files:" >> ../release_body.md
+            for patch in $(ls "../generated-patches/$susfs_branch/"*.patch); do
+              echo "  - \`$(basename $patch)\`" >> ../release_body.md
+            done
             echo "" >> ../release_body.md
           else
             echo "No changes detected for $susfs_branch!"
@@ -99,14 +103,11 @@ jobs:
           popd
         done
 
-    - name: Prepare release assets
-      id: prepare-release
+        # Set outputs
+        echo "tag_name=v${SUSFS_VERSION}-${SUSFS_COMMIT_HASH}" >> $GITHUB_OUTPUT
+
+    - name: Prepare release
       run: |
-        # Get the latest SUSFS version from the last processed branch
-        SUSFS_VERSION=$(grep -oP '#define SUSFS_VERSION "\K[^"]+' susfs-*/kernel_patches/include/linux/susfs.h | head -1)
-        SUSFS_COMMIT_HASH=$(git -C susfs-* rev-parse --short HEAD | head -1)
-        TAG_NAME="${SUSFS_VERSION}-${SUSFS_COMMIT_HASH}-all"
-        
         # Add instructions to release body
         echo "" >> release_body.md
         echo "### How to Apply" >> release_body.md
@@ -114,26 +115,15 @@ jobs:
         echo '```sh' >> release_body.md
         echo "git apply *.patch" >> release_body.md
         echo '```' >> release_body.md
-        
-        # Compress all patches
-        tar -czvf susfs-patches-all.tar.gz all-patches/
-        
-        # Set outputs
-        echo "release_files=all-patches/* susfs-patches-all.tar.gz" >> $GITHUB_OUTPUT
-        echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
-        body_content=$(cat release_body.md)
-        body_content="${body_content//'%'/'%25'}"
-        body_content="${body_content//$'\n'/'%0A'}"
-        body_content="${body_content//$'\r'/'%0D'}"
-        echo "release_body=${body_content}" >> $GITHUB_OUTPUT
 
-    - name: Create release
+    - name: Create release with all patch files
       uses: softprops/action-gh-release@v1
       with:
-        tag_name: ${{ steps.prepare-release.outputs.tag_name }}
-        name: "SUSFS Patches (All Versions) ${{ steps.prepare-release.outputs.tag_name }}"
-        body: ${{ steps.prepare-release.outputs.release_body }}
-        files: ${{ steps.prepare-release.outputs.release_files }}
+        tag_name: ${{ steps.generate-patches.outputs.tag_name }}
+        name: "SUSFS Patches v${{ steps.generate-patches.outputs.tag_name }}"
+        body: file://release_body.md
+        files: |
+          generated-patches/**/*.patch
         draft: false
         prerelease: false
       env:
