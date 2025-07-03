@@ -45,7 +45,7 @@ jobs:
       run: |
         SUSFS_VERSION=$(grep -oP '#define SUSFS_VERSION "\K[^"]+' susfs-source/kernel_patches/include/linux/susfs.h)
         SUSFS_COMMIT_HASH=$(git -C susfs-source rev-parse --short HEAD)
-        TAG_NAME="v${SUSFS_VERSION}-${SUSFS_COMMIT_HASH}"
+        TAG_NAME="${SUSFS_VERSION}-${SUSFS_COMMIT_HASH}"
         echo "tag_name=${TAG_NAME}" >> $GITHUB_OUTPUT
 
     - name: Clone kernel source
