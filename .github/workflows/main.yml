@@ -1,11 +1,8 @@
 name: Generate SUSFS Patches
 
 on:
-  # Trigger on schedule (daily at 2 AM UTC)
   schedule:
     - cron: '0 2 * * *'
-  
-  # Manual trigger
   workflow_dispatch:
     inputs:
       susfs_repo:
@@ -26,176 +23,73 @@ on:
         default: 'google'
 
 jobs:
-  generate-susfs-patches:
+  generate-patches:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - name: Checkout kernel patches repository
-      uses: actions/checkout@v4
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        fetch-depth: 0
-    
-    - name: Set up Git
+    - name: Clone SUSFS source
       run: |
-        git config --global user.name "SUSFS Patch Generator"
-        git config --global user.email "action@github.com"
-    
-    - name: Clone SUSFS repository
+        git clone \
+          --depth 1 \
+          -b "${{ github.event.inputs.susfs_branch || 'gki-android13-5.15' }}" \
+          "https://github.com/${{ github.event.inputs.susfs_repo || 'ShirkNeko/susfs4ksu' }}.git" \
+          susfs-source
+
+    - name: Clone kernel source
       run: |
-        SUSFS_REPO="${{ github.event.inputs.susfs_repo || 'ShirkNeko/susfs4ksu' }}"
-        SUSFS_BRANCH="${{ github.event.inputs.susfs_branch || 'gki-android13-5.15' }}"
-        
-        echo "Cloning SUSFS repo: $SUSFS_REPO (branch: $SUSFS_BRANCH)"
-        git clone --depth 1 -b $SUSFS_BRANCH https://github.com/$SUSFS_REPO.git susfs-source
-    
-    - name: Clone kernel repository
+        git clone \
+          --depth 50 \
+          -b "${{ github.event.inputs.kernel_branch || 'google' }}" \
+          "https://github.com/${{ github.event.inputs.kernel_repo || 'topnotchfreaks/kernel_msm-5.15' }}.git" \
+          kernel-source
+
+    - name: Generate patches (exclude KernelSU only)
       run: |
-        KERNEL_REPO="${{ github.event.inputs.kernel_repo || 'topnotchfreaks/kernel_msm-5.15' }}"
-        KERNEL_BRANCH="${{ github.event.inputs.kernel_branch || 'google' }}"
-        
-        echo "Cloning kernel repo: $KERNEL_REPO (branch: $KERNEL_BRANCH)"
-        git clone --depth 50 -b $KERNEL_BRANCH https://github.com/$KERNEL_REPO.git kernel-source
-    
-    - name: Generate SUSFS patches
-      run: |
-        # Create patches directory
-        mkdir -p patches/susfs
-        
-        # Get current commit info
-        KERNEL_COMMIT=$(cd kernel-source && git rev-parse HEAD)
-        SUSFS_COMMIT=$(cd susfs-source && git rev-parse HEAD)
-        
-        echo "Kernel commit: $KERNEL_COMMIT"
-        echo "SUSFS commit: $SUSFS_COMMIT"
-        
-        # Copy only the kernel_patches content (excluding KernelSU folder)
-        if [ -d "susfs-source/kernel_patches" ]; then
-          echo "Copying SUSFS kernel patches..."
-          
-          # Copy main patch file
-          if [ -f "susfs-source/kernel_patches/50_add_susfs_in_gki-android13-5.15.patch" ]; then
-            cp susfs-source/kernel_patches/50_add_susfs_in_gki-android13-5.15.patch patches/susfs/
-          fi
-          
-          # Copy fs directory
-          if [ -d "susfs-source/kernel_patches/fs" ]; then
-            mkdir -p patches/susfs/fs
-            cp -r susfs-source/kernel_patches/fs/* patches/susfs/fs/
-          fi
-          
-          # Copy include directory
-          if [ -d "susfs-source/kernel_patches/include" ]; then
-            mkdir -p patches/susfs/include
-            cp -r susfs-source/kernel_patches/include/* patches/susfs/include/
-          fi
+        cd kernel-source
+        git checkout -b susfs-patched
+
+        # Copy everything EXCEPT KernelSU/
+        if [ -d "../susfs-source/kernel_patches" ]; then
+          rsync -av --exclude='KernelSU/' ../susfs-source/kernel_patches/ .
         fi
-        
-        # Create patch metadata
-        cat > patches/susfs/patch-info.txt << EOF
-        Generated at: $(date -u)
-        SUSFS repository: ${{ github.event.inputs.susfs_repo || 'ShirkNeko/susfs4ksu' }}
-        SUSFS branch: ${{ github.event.inputs.susfs_branch || 'gki-android13-5.15' }}
-        SUSFS commit: $SUSFS_COMMIT
-        Kernel repository: ${{ github.event.inputs.kernel_repo || 'topnotchfreaks/kernel_msm-5.15' }}
-        Kernel branch: ${{ github.event.inputs.kernel_branch || 'google' }}
-        Kernel commit: $KERNEL_COMMIT
-        EOF
-        
-        echo "Generated patches:"
-        ls -la patches/susfs/
-    
-    - name: Check for changes
-      id: check_changes
-      run: |
-        if [ -n "$(git status --porcelain patches/)" ]; then
-          echo "changes=true" >> $GITHUB_OUTPUT
-          echo "Changes detected in patches"
+
+        # Generate patches
+        git add -A
+        if ! git diff --staged --quiet; then
+          git commit -m "Apply SUSFS changes (excl. KernelSU)"
+          mkdir -p ../generated-patches
+          git format-patch "${{ github.event.inputs.kernel_branch || 'google' }}" --output-directory ../generated-patches/
+          git diff "${{ github.event.inputs.kernel_branch || 'google' }}" > ../generated-patches/susfs-combined.patch
         else
-          echo "changes=false" >> $GITHUB_OUTPUT
-          echo "No changes in patches"
+          echo "No changes detected!"
+          exit 1
         fi
-    
-    - name: Commit and push changes
-      if: steps.check_changes.outputs.changes == 'true'
-      run: |
-        git remote set-url origin https://${{ secrets.GH_TOKEN }}@github.com/${{ github.repository }}.git
-        git add patches/
-        git commit -m "Auto-update SUSFS patches - $(date -u)"
-        git push origin main
-    
-    - name: Create release with patches
-      if: steps.check_changes.outputs.changes == 'true'
+
+    - name: Create release with .patch files
+      if: success()
       uses: softprops/action-gh-release@v1
       with:
-        tag_name: susfs-patches-${{ github.run_number }}
-        name: "SUSFS Patches - $(date -u +'%Y-%m-%d %H:%M')"
+        tag_name: "susfs-patches-$(date +%Y%m%d)"
+        name: "SUSFS Patches ($(date +'%Y-%m-%d'))"
         body: |
-          SUSFS kernel patches for integration
-          
-          **SUSFS Repository:** ${{ github.event.inputs.susfs_repo || 'ShirkNeko/susfs4ksu' }}
-          **SUSFS Branch:** ${{ github.event.inputs.susfs_branch || 'gki-android13-5.15' }}
-          **Kernel Repository:** ${{ github.event.inputs.kernel_repo || 'topnotchfreaks/kernel_msm-5.15' }}
-          **Kernel Branch:** ${{ github.event.inputs.kernel_branch || 'google' }}
-          
-          Generated at: $(date -u)
-          
-          ## Usage
-          Apply these patches to your kernel source:
-          ```bash
-          # Apply the main patch
-          git apply patches/susfs/50_add_susfs_in_gki-android13-5.15.patch
-          
-          # Or manually copy the files to your kernel source
-          cp -r patches/susfs/fs/* /path/to/kernel/fs/
-          cp -r patches/susfs/include/* /path/to/kernel/include/
+          **Generated from:**
+          - SUSFS: `${{ github.event.inputs.susfs_repo || 'ShirkNeko/susfs4ksu' }}@${{ github.event.inputs.susfs_branch || 'gki-android13-5.15' }}`
+          - Kernel: `${{ github.event.inputs.kernel_repo || 'topnotchfreaks/kernel_msm-5.15' }}@${{ github.event.inputs.kernel_branch || 'google' }}`
+
+          **Includes:**
+          - `fs/` modifications
+          - `include/` headers
+          - **Excludes:** `KernelSU/` folder
+
+          **Apply with:**
+          ```sh
+          git am *.patch  # For split patches
+          # OR
+          git apply susfs-combined.patch  # For combined diff
           ```
         files: |
-          patches/susfs/*
+          generated-patches/*.patch
         draft: false
         prerelease: false
-      env:
-        GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-
-  # Check for SUSFS updates
-  check-susfs-updates:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'schedule'
-    
-    steps:
-    - name: Checkout patches repository
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-    
-    - name: Check for SUSFS updates
-      run: |
-        SUSFS_REPO="ShirkNeko/susfs4ksu"
-        SUSFS_BRANCH="gki-android13-5.15"
-        
-        # Get current SUSFS commit from our metadata
-        CURRENT_COMMIT=""
-        if [ -f "patches/susfs/patch-info.txt" ]; then
-          CURRENT_COMMIT=$(grep "SUSFS commit:" patches/susfs/patch-info.txt | cut -d' ' -f3)
-        fi
-        
-        # Get latest SUSFS commit
-        LATEST_COMMIT=$(curl -s "https://api.github.com/repos/$SUSFS_REPO/commits/$SUSFS_BRANCH" | jq -r '.sha')
-        
-        echo "Current commit: $CURRENT_COMMIT"
-        echo "Latest commit: $LATEST_COMMIT"
-        
-        if [ "$CURRENT_COMMIT" != "$LATEST_COMMIT" ]; then
-          echo "SUSFS updates detected!"
-          
-          # Trigger the main patch generation workflow
-          curl -X POST \
-            -H "Authorization: token ${{ secrets.GH_TOKEN }}" \
-            -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/repos/${{ github.repository }}/actions/workflows/generate-susfs-patches.yml/dispatches \
-            -d '{"ref":"main","inputs":{"susfs_repo":"ShirkNeko/susfs4ksu","susfs_branch":"gki-android13-5.15","kernel_repo":"topnotchfreaks/kernel_msm-5.15","kernel_branch":"google"}}'
-        else
-          echo "No SUSFS updates found"
-        fi
       env:
         GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
