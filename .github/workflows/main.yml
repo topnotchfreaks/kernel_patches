@@ -39,6 +39,14 @@ jobs:
           -b "${{ github.event.inputs.susfs_branch || 'gki-android13-5.15' }}" \
           "https://github.com/${{ github.event.inputs.susfs_repo || 'ShirkNeko/susfs4ksu' }}.git" \
           susfs-source
+            
+    - name: Extract SUSFS version and commit hash
+      id: set_tag
+      run: |
+        SUSFS_VERSION=$(grep -oP '#define SUSFS_VERSION "\K[^"]+' susfs-source/kernel_patches/include/linux/susfs.h)
+        SUSFS_COMMIT_HASH=$(git -C susfs-source rev-parse --short HEAD)
+        TAG_NAME="v${SUSFS_VERSION}-${SUSFS_COMMIT_HASH}"
+        echo "tag_name=${TAG_NAME}" >> $GITHUB_OUTPUT
 
     - name: Clone kernel source
       run: |
@@ -74,7 +82,7 @@ jobs:
       if: success()
       uses: softprops/action-gh-release@v1
       with:
-        tag_name: "susfs-patches-$(date +%Y%m%d)"
+        tag_name: ${{ steps.set_tag.outputs.tag_name }}
         name: "SUSFS Patches ($(date +'%Y-%m-%d'))"
         body: |
           **Generated from:**
