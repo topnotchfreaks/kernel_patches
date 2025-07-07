@@ -30,7 +30,7 @@ jobs:
     - name: Generate patches for all branches
       id: generate-patches
       run: |
-        # Define branch configurations
+        # Define branch configurations in order
         declare -A branch_configs=(
           ["gki-android12-5.10"]="android12-5.10-lts 5.10 12"
           ["gki-android13-5.10"]="android13-5.10-lts 5.10 13"
@@ -40,10 +40,20 @@ jobs:
           ["gki-android15-6.6"]="android15-6.6-lts 6.6 15"
         )
 
+        # Define processing order
+        branch_order=(
+          "gki-android12-5.10"
+          "gki-android13-5.10"
+          "gki-android13-5.15"
+          "gki-android14-5.15"
+          "gki-android14-6.1"
+          "gki-android15-6.6"
+        )
+
         SUSFS_VERSION=""
         SUSFS_COMMIT_HASH=""
         
-        for susfs_branch in "${!branch_configs[@]}"; do
+        for susfs_branch in "${branch_order[@]}"; do
           IFS=' ' read -r kernel_branch kernel_version android_version <<< "${branch_configs[$susfs_branch]}"
           
           echo "Processing: $susfs_branch -> $kernel_branch"
