@@ -125,7 +125,7 @@ jobs:
       with:
         tag_name: ${{ steps.generate-patches.outputs.tag_name }}
         name: "SUSFS Patches ${{ steps.generate-patches.outputs.tag_name }}"
-        body: file://release_body.md
+        body_path: release_body.md
         files: |
           generated-patches/**/*.patch
         draft: false
