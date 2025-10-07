@@ -27,16 +27,26 @@ jobs:
         echo "" >> release_body.md
 
     - name: Generate patches for all branches
+
       id: generate-patches
+
       run: |
-        # Define branch configurations for 5.15 kernels only
         declare -A branch_configs=(
+          ["gki-android12-5.10"]="android12-5.10-lts 5.10 12"
+          ["gki-android13-5.10"]="android13-5.10-lts 5.10 13"
           ["gki-android13-5.15"]="android13-5.15-lts 5.15 13"
+          ["gki-android14-5.15"]="android14-5.15-lts 5.15 14"
+          ["gki-android14-6.1"]="android14-6.1-lts 6.1 14"
+          ["gki-android15-6.6"]="android15-6.6-lts 6.6 15"
         )
 
-        # Define processing order for 5.15 kernels only
         branch_order=(
+          "gki-android12-5.10"
+          "gki-android13-5.10"
           "gki-android13-5.15"
+          "gki-android14-5.15"
+          "gki-android14-6.1"
+          "gki-android15-6.6"
         )
 
         SUSFS_VERSION=""
