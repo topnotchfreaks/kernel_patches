@@ -33,12 +33,10 @@ jobs:
       run: |
         declare -A branch_configs=(
           ["gki-android13-5.15"]="android13-5.15-lts 5.15 13"
-          ["gki-android14-5.15"]="android14-5.15-lts 5.15 14"
         )
 
         branch_order=(
           "gki-android13-5.15"
-          "gki-android14-5.15"
         )
 
         SUSFS_VERSION=""
