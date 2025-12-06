@@ -71,13 +71,23 @@ jobs:
             rsync -av --exclude='KernelSU/' "../susfs-$susfs_branch/kernel_patches/" .
           fi
           
-          # Apply the additional patch
+          # Apply SUSFS patch
           PATCH_FILE="../susfs-$susfs_branch/kernel_patches/50_add_susfs_in_$susfs_branch.patch"
           if [ -f "$PATCH_FILE" ]; then
-            echo "Applying patch..."
+            echo "Applying main SUSFS patch..."
             git apply --whitespace=fix "$PATCH_FILE"
           else
             echo "Patch file not found: $PATCH_FILE"
+            exit 1
+          fi
+
+          # Apply KernelSU SUSFS enablement patch
+          KSU_PATCH="../susfs-$susfs_branch/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch"
+          if [ -f "$KSU_PATCH" ]; then
+            echo "Applying KernelSU SUSFS enablement patch..."
+            git apply --whitespace=fix "$KSU_PATCH"
+          else
+            echo "KernelSU patch file not found: $KSU_PATCH"
             exit 1
           fi
           
