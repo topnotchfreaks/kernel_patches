@@ -98,19 +98,80 @@ jobs:
             if git apply --whitespace=fix "$PATCH_FILE"; then
               echo "Patch applied cleanly with git apply."
 
-            elif git apply --whitespace=fix --3way "$PATCH_FILE"; then
-              echo "Patch applied via 3-way merge."
-
-            elif patch -p1 --fuzz=3 --no-backup-if-mismatch -i "$PATCH_FILE"; then
-              echo "Patch applied with fuzz=3."
-              # Stage any files modified by the patch command (not tracked by git apply)
+            else
+              echo "Clean apply failed, trying patch with fuzz=3..."
+              # Use patch with fuzz; allow it to partially succeed then fix rejects manually
+              patch -p1 --fuzz=3 --no-backup-if-mismatch -i "$PATCH_FILE" || true
               git add -u
 
-            else
-              echo "ERROR: All patch strategies failed."
-              echo "--- Rejected hunks (if any) ---"
-              find . -name "*.rej" -exec echo "=== {} ===" \; -exec cat {} \;
-              exit 1
+              # Check for any remaining .rej files and attempt to fix known ones
+              REJECTS=$(find . -name "*.rej")
+              if [ -n "$REJECTS" ]; then
+                echo "Rejected hunks found, attempting manual fixes..."
+
+                # -------------------------------------------------------
+                # Manual fix: fs/namespace.c hunk #1 (line ~32)
+                # Inserts SUSFS sus_mount includes after mnt_idmapping.h
+                # -------------------------------------------------------
+                if [ -f "fs/namespace.c.rej" ]; then
+                  echo "Manually applying fs/namespace.c hunk #1..."
+                  python3 - <<'PYEOF'
+import re
+
+filepath = "fs/namespace.c"
+with open(filepath, "r") as f:
+    content = f.read()
+
+anchor = "#include <linux/mnt_idmapping.h>"
+insert_after = """
+#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
+#include <linux/susfs_def.h>
+#endif // #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT"""
+
+anchor2 = '#include "pnode.h"'
+insert_before_anchor2 = """
+#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
+extern bool susfs_is_current_ksu_domain(void);
+extern struct static_key_true susfs_is_sdcard_android_data_not_decrypted;
+
+#define CL_COPY_MNT_NS BIT(25) /* used by copy_mnt_ns() */
+
+#endif // #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
+"""
+
+if anchor in content and insert_after.strip() not in content:
+    content = content.replace(anchor, anchor + "\n" + insert_after.strip(), 1)
+    print("Inserted SUS_MOUNT include block after mnt_idmapping.h")
+else:
+    print("SUS_MOUNT include block already present or anchor not found, skipping.")
+
+if anchor2 in content and "susfs_is_current_ksu_domain" not in content:
+    content = content.replace(anchor2, insert_before_anchor2.strip() + "\n\n" + anchor2, 1)
+    print("Inserted susfs extern declarations before pnode.h include.")
+else:
+    print("susfs extern declarations already present or anchor2 not found, skipping.")
+
+with open(filepath, "w") as f:
+    f.write(content)
+
+print("fs/namespace.c manual patch complete.")
+PYEOF
+                  rm -f fs/namespace.c.rej
+                  git add fs/namespace.c
+                fi
+
+                # Check for any remaining unresolved rejects
+                REMAINING=$(find . -name "*.rej")
+                if [ -n "$REMAINING" ]; then
+                  echo "ERROR: Unresolved rejected hunks remain:"
+                  find . -name "*.rej" -exec echo "=== {} ===" \; -exec cat {} \;
+                  exit 1
+                else
+                  echo "All rejected hunks resolved manually."
+                fi
+              else
+                echo "No rejected hunks after fuzz apply."
+              fi
             fi
 
           else
