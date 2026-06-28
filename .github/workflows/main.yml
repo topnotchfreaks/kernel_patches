@@ -18,11 +18,6 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v3
 
-    - name: Install dependencies
-      run: |
-        sudo apt-get update -qq
-        sudo apt-get install -y patch
-
     - name: Set up environment
       run: |
         mkdir -p generated-patches
@@ -32,7 +27,9 @@ jobs:
         echo "" >> release_body.md
 
     - name: Generate patches for all branches
+
       id: generate-patches
+
       run: |
         declare -A branch_configs=(
           ["gki-android13-5.15"]="android13-5.15-lts 5.15 13"
@@ -62,24 +59,8 @@ jobs:
             echo "tag_name=${SUSFS_VERSION}-${SUSFS_COMMIT_HASH}" >> $GITHUB_OUTPUT
           fi
           
-          # Get the base kernel commit the SUSFS patch was written against (if documented)
-          BASE_COMMIT=""
-          if [ -f "susfs-$susfs_branch/kernel_patches/base_commit_${susfs_branch}" ]; then
-            BASE_COMMIT=$(cat "susfs-$susfs_branch/kernel_patches/base_commit_${susfs_branch}")
-            echo "Found base commit: $BASE_COMMIT"
-          fi
-
           # Clone kernel source
           git clone --depth 1 -b "$kernel_branch" https://android.googlesource.com/kernel/common "kernel-$kernel_branch"
-
-          # If a known-good base commit exists, check it out
-          if [ -n "$BASE_COMMIT" ]; then
-            echo "Pinning kernel to base commit $BASE_COMMIT..."
-            git -C "kernel-$kernel_branch" fetch --unshallow || true
-            git -C "kernel-$kernel_branch" checkout "$BASE_COMMIT" || {
-              echo "Warning: Could not checkout base commit $BASE_COMMIT, using HEAD"
-            }
-          fi
           
           # Generate patches
           pushd "kernel-$kernel_branch"
@@ -90,90 +71,11 @@ jobs:
             rsync -av --exclude='KernelSU/' "../susfs-$susfs_branch/kernel_patches/" .
           fi
           
-          # Apply SUSFS patch with fallback strategies
+          # Apply SUSFS patch
           PATCH_FILE="../susfs-$susfs_branch/kernel_patches/50_add_susfs_in_$susfs_branch.patch"
           if [ -f "$PATCH_FILE" ]; then
             echo "Applying main SUSFS patch..."
-
-            if git apply --whitespace=fix "$PATCH_FILE"; then
-              echo "Patch applied cleanly with git apply."
-
-            else
-              echo "Clean apply failed, trying patch with fuzz=3..."
-              # Use patch with fuzz; allow it to partially succeed then fix rejects manually
-              patch -p1 --fuzz=3 --no-backup-if-mismatch -i "$PATCH_FILE" || true
-              git add -u
-
-              # Check for any remaining .rej files and attempt to fix known ones
-              REJECTS=$(find . -name "*.rej")
-              if [ -n "$REJECTS" ]; then
-                echo "Rejected hunks found, attempting manual fixes..."
-
-                # -------------------------------------------------------
-                # Manual fix: fs/namespace.c hunk #1 (line ~32)
-                # Inserts SUSFS sus_mount includes after mnt_idmapping.h
-                # -------------------------------------------------------
-                if [ -f "fs/namespace.c.rej" ]; then
-                  echo "Manually applying fs/namespace.c hunk #1..."
-                  python3 - <<'PYEOF'
-import re
-
-filepath = "fs/namespace.c"
-with open(filepath, "r") as f:
-    content = f.read()
-
-anchor = "#include <linux/mnt_idmapping.h>"
-insert_after = """
-#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
-#include <linux/susfs_def.h>
-#endif // #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT"""
-
-anchor2 = '#include "pnode.h"'
-insert_before_anchor2 = """
-#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
-extern bool susfs_is_current_ksu_domain(void);
-extern struct static_key_true susfs_is_sdcard_android_data_not_decrypted;
-
-#define CL_COPY_MNT_NS BIT(25) /* used by copy_mnt_ns() */
-
-#endif // #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
-"""
-
-if anchor in content and insert_after.strip() not in content:
-    content = content.replace(anchor, anchor + "\n" + insert_after.strip(), 1)
-    print("Inserted SUS_MOUNT include block after mnt_idmapping.h")
-else:
-    print("SUS_MOUNT include block already present or anchor not found, skipping.")
-
-if anchor2 in content and "susfs_is_current_ksu_domain" not in content:
-    content = content.replace(anchor2, insert_before_anchor2.strip() + "\n\n" + anchor2, 1)
-    print("Inserted susfs extern declarations before pnode.h include.")
-else:
-    print("susfs extern declarations already present or anchor2 not found, skipping.")
-
-with open(filepath, "w") as f:
-    f.write(content)
-
-print("fs/namespace.c manual patch complete.")
-PYEOF
-                  rm -f fs/namespace.c.rej
-                  git add fs/namespace.c
-                fi
-
-                # Check for any remaining unresolved rejects
-                REMAINING=$(find . -name "*.rej")
-                if [ -n "$REMAINING" ]; then
-                  echo "ERROR: Unresolved rejected hunks remain:"
-                  find . -name "*.rej" -exec echo "=== {} ===" \; -exec cat {} \;
-                  exit 1
-                else
-                  echo "All rejected hunks resolved manually."
-                fi
-              else
-                echo "No rejected hunks after fuzz apply."
-              fi
-            fi
-
+            git apply --whitespace=fix "$PATCH_FILE"
           else
             echo "Patch file not found: $PATCH_FILE"
             exit 1
@@ -204,6 +106,7 @@ PYEOF
 
     - name: Prepare release
       run: |
+        # Add instructions to release body
         echo "" >> release_body.md
         echo "### How to Apply" >> release_body.md
         echo "Choose the appropriate directory for your Android/Kernel version and apply patches with:" >> release_body.md
